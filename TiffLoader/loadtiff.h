@@ -612,9 +612,14 @@ public:
 		Nsminsamplevalue = 0;
 		extrasamples = 0;
 		endianness = ENDIAN::NOT_DEFINED;
+
+		//for cppcheck
+		BadFaxLines = 0;
+		CleanFaxData = 0;
+		ConsecutiveBadFaxLines = 0;
 	}
 
-	~BASICHEADER()
+	~BASICHEADER ()
 	{
 		delete[] stripbytecounts;
 		delete[] stripoffsets;
@@ -632,22 +637,22 @@ public:
 	int header_Noutsamples ();
 	int header_Ninsamples ();
 	FMT header_outputformat ();
-	BYTE* load_raster ( FileData* fd, FMT* format);
-	BYTE* read_strip ( int index, int* strip_width, int* strip_height, FileData* fd, int* insamples);
-	BYTE* read_tile ( int index, int* tile_width, int* tile_height, FileData* fd, int* insamples);
-	BYTE* read_channel ( int index, int* channel_width, int* channel_height, FileData* fd);
+	BYTE* load_raster (FileData* fd, FMT* format);
+	BYTE* read_strip (int index, int* strip_width, int* strip_height, FileData* fd, int* insamples);
+	BYTE* read_tile (int index, int* tile_width, int* tile_height, FileData* fd, int* insamples);
+	BYTE* read_channel (int index, int* channel_width, int* channel_height, FileData* fd);
 	/*//////////////////////////////////////////////////////////////////////////////////////////////////*/
 	/* stip tile and plane loading section*/
 	/*//////////////////////////////////////////////////////////////////////////////////////////////////*/
-	int plane_to_channel (BYTE* out, int width, int height, BYTE* bits, unsigned long Nbytes,  int sample_index);
-	int grey_to_grey (BYTE* rgba, int width, int height, BYTE* bits, unsigned long N,  int insamples);
-	int pal_to_rgba (BYTE* rgba, int width, int height, BYTE* bits, unsigned long Nbytes );
-	int ycbcr_to_rgba (BYTE* rgba, int width, int height, BYTE* bits, unsigned long N );
+	int plane_to_channel (BYTE* out, int width, int height, BYTE* bits, unsigned long Nbytes, int sample_index);
+	int grey_to_grey (BYTE* rgba, int width, int height, BYTE* bits, unsigned long N, int insamples);
+	int pal_to_rgba (BYTE* rgba, int width, int height, BYTE* bits, unsigned long Nbytes);
+	int ycbcr_to_rgba (BYTE* rgba, int width, int height, BYTE* bits, unsigned long N);
 	int cmyk_to_cmyk (BYTE* rgba, int width, int height, BYTE* bits, unsigned long Nbytes, int insamples);
 	int bitstream_to_rgba (BYTE* rgba, int width, int height, BYTE* bits, unsigned long Nbytes, int insamples);
-	void unpredict_samples (BYTE* buff, int width, int height, int depth );
-	int read_byte_sample (BYTE* bytes,  int sample_index);
-	int read_int_sample (BYTE* bytes,  int sample_index);
+	void unpredict_samples (BYTE* buff, int width, int height, int depth);
+	int read_byte_sample (BYTE* bytes, int sample_index);
+	int read_int_sample (const BYTE* bytes, int sample_index);
 
 };
 
@@ -715,7 +720,7 @@ TAG* load_header (FileData* fd, int* Ntags);
 void killtags (TAG* tags, int N);
 int load_tags (TAG* tag, FileData* fd);
 double tag_get_entry (TAG* tag, int index);
-void pasteflexible (BYTE* buff, int width, int height, int depth, BYTE* tile, int twidth, int theight, int tdepth, int x, int y);
+void pasteflexible (BYTE* buff, int width, int height, int depth, const BYTE* tile, int twidth, int theight, int tdepth, int x, int y);
 char* fread_asciiz (FileData* fd);
 double memread_ieee754 (BYTE* buff, int bigendian);
 float memread_ieee754f (BYTE* buff, int bigendian);

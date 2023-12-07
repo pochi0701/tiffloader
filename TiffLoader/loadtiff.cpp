@@ -39,7 +39,7 @@ BYTE* TIFF::floadtiffwhite ()
 		case FMT::FMT_RGBA:
 			rgb = new BYTE[3 * width * height];
 			for (auto i = 0;i < width * height;i++) {
-				rgb[i * 3] = buff[i * 4] + 255 - buff[i * 4 + 3];
+				rgb[i * 3 + 0] = buff[i * 4 + 0] + 255 - buff[i * 4 + 3];
 				rgb[i * 3 + 1] = buff[i * 4 + 1] + 255 - buff[i * 4 + 3];
 				rgb[i * 3 + 2] = buff[i * 4 + 2] + 255 - buff[i * 4 + 3];
 			}
@@ -98,60 +98,47 @@ BYTE* TIFF::load_tiff ()
 	TAG* tags = NULL;
 	int Ntags = 0;
 	int err;
-	BASICHEADER header;
+	BASICHEADER header = {};
 	BYTE* answer;
 
-	try {
-		format = FMT::FMT_ERROR;
-		fd->set_endian ();
-		magic = fd->fget16 ();
-		if (magic != 42) {
-			throw some_exception ("parse_error");  // 例外をスロー
-		}
-		offset = fd->fget32 ();
-		fd->buffer_ptr = offset;
-
-		tags = load_header (fd, &Ntags);
-		if (!tags) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
-		}
-		//getchar();
-		//header_defaults (&header);
-		header.endianness = fd->type;
-		header.fill_header (tags, Ntags);
-		err = header.header_fixupsections ();
-		if (err) {
-			throw some_exception ("parse_error");  // 例外をスロー
-		}
-		//printf("here %d %d\n", header.imagewidth, header.imageheight);
-		//printf("Bitspersample%d %d %d\n", header.bitspersample[0], header.bitspersample[1], header.bitspersample[2]);
-		err = header.header_not_ok ();
-		if (err) {
-			throw some_exception ("parse_error");  // 例外をスロー
-		}
-		answer = header.load_raster (fd, &format);
-		//getchar();
-		width = header.imagewidth;
-		height = header.imageheight;
-		//freeheader (&header);
+	format = FMT::FMT_ERROR;
+	fd->set_endian ();
+	magic = fd->fget16 ();
+	if (magic != 42) {
 		killtags (tags, Ntags);
-		return answer;
+		throw some_exception ("parse_error");  // 例外をスロー
 	}
-	catch (some_exception e) {
-		if (strcmp (e.what (), "parse_error") == 0) {
-			//parse_error:
-			//freeheader (&header);
-			killtags (tags, Ntags);
-			return 0;
-		}
-		else if (strcmp (e.what (), "out_of_memory") == 0) {
-			//out_of_memory:
-			//freeheader (&header);
-			killtags (tags, Ntags);
-			return 0;
-		}
-		return 0;
+	offset = fd->fget32 ();
+	fd->buffer_ptr = offset;
+
+	tags = load_header (fd, &Ntags);
+	if (!tags) {
+		killtags (tags, Ntags);
+		throw some_exception ("out_of_memory");  // 例外をスロー
 	}
+	//getchar();
+	//header_defaults (&header);
+	header.endianness = fd->type;
+	header.fill_header (tags, Ntags);
+	err = header.header_fixupsections ();
+	if (err) {
+		killtags (tags, Ntags);
+		throw some_exception ("parse_error");  // 例外をスロー
+	}
+	//printf("here %d %d\n", header.imagewidth, header.imageheight);
+	//printf("Bitspersample%d %d %d\n", header.bitspersample[0], header.bitspersample[1], header.bitspersample[2]);
+	err = header.header_not_ok ();
+	if (err) {
+		killtags (tags, Ntags);
+		throw some_exception ("parse_error");  // 例外をスロー
+	}
+	answer = header.load_raster (fd, &format);
+	//getchar();
+	width = header.imagewidth;
+	height = header.imageheight;
+	//freeheader (&header);
+	killtags (tags, Ntags);
+	return answer;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 ///BASICHEADER
@@ -334,7 +321,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 			fillorder = (int)tags[i].scalar;
 			break;
 		case TID::TID_STRIPOFFSETS:
-			stripoffsets = (unsigned long*)new char[tags[i].datacount * sizeof (unsigned long)];
+			stripoffsets = new unsigned long[tags[i].datacount];
 			if (!stripoffsets) {
 				throw some_exception ("out_of_memory");  // 例外をスロー
 			}
@@ -350,7 +337,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 			rowsperstrip = (int)tags[i].scalar;
 			break;
 		case TID::TID_STRIPBYTECOUNTS:
-			stripbytecounts = (unsigned long*)new char[tags[i].datacount * sizeof (unsigned long)];
+			stripbytecounts = new unsigned long[tags[i].datacount];
 			if (!stripbytecounts) {
 				throw some_exception ("out_of_memory");  // 例外をスロー
 			}
@@ -373,7 +360,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 				throw some_exception ("parse_error");  // 例外をスロー
 			}
 			Ncolormap = tags[i].datacount / 3;
-			colormap = (BYTE*)new char[Ncolormap * 3];
+			colormap = new BYTE[Ncolormap * 3];
 			if (!colormap) {
 				throw some_exception ("out_of_memory");  // 例外をスロー
 			}
@@ -802,6 +789,7 @@ BYTE* BASICHEADER::read_strip (int index, int* strip_width, int* strip_height, F
 		case photo_metric_interpretations::PI_WhiteIsZero:
 		case photo_metric_interpretations::PI_BlackIsZero:
 			grey_to_grey (answer, imagewidth, stripheight, data, N, *insamples);
+
 			if (predictor == 2) {
 				unpredict_samples (answer, imagewidth, stripheight, *insamples);
 			}
@@ -1128,7 +1116,7 @@ int BASICHEADER::ycbcr_to_rgba (BYTE* rgba, int width, int height, BYTE* bits, u
 	int Cb, Cr;
 	int x, y;
 	int ix, iy;
-	unsigned long counter = 0;
+	//unsigned long counter = 0;
 	try {
 
 		if (YCbCrSubSampling_h * YCbCrSubSampling_v > 16) {
@@ -1223,9 +1211,9 @@ int BASICHEADER::cmyk_to_cmyk (BYTE* cmyk, int width, int height, BYTE* bits, un
 	int bitstreamflag = 0;
 	int C, M, Y, K, A{};
 	int Cprev = 0, Yprev = 0, Mprev = 0, Kprev = 0, Aprev = 0;
-	int red = 0;
-	int green = 0;
-	int blue = 0;
+	//int red = 0;
+	// green = 0;
+	//int blue = 0;
 	int x, y;
 	int counter = 0;
 
@@ -1348,7 +1336,7 @@ int BASICHEADER::bitstream_to_rgba (BYTE* rgba, int width, int height, BYTE* bit
 	int totbits = 0;
 	int bitstreamflag = 0;
 	int red, green, blue, alpha;
-	unsigned long counter = 0;
+	//unsigned long counter = 0;
 	int lastsample;
 
 	for (auto i = 0; i < samplesperpixel; i++) {
@@ -1432,7 +1420,7 @@ int BASICHEADER::bitstream_to_rgba (BYTE* rgba, int width, int height, BYTE* bit
 /// <param name="bytes"></param>
 /// <param name="sample_index"></param>
 /// <returns></returns>
-int BASICHEADER::read_int_sample (BYTE* bytes, int sample_index)
+int BASICHEADER::read_int_sample (const BYTE* bytes, int sample_index)
 {
 	//int i;
 	int answer = 0;
@@ -1545,7 +1533,7 @@ typedef struct
 
 void invert (BYTE* bits, unsigned long N);
 BYTE* unpackbits (FileData* fd, unsigned long count, unsigned long* Nret);
-BYTE* ccittdecompress (BYTE* in, unsigned long count, unsigned long* Nret, int width, int height, int eol);
+BYTE* ccittdecompress (BYTE* in, unsigned long count, unsigned long* Nret, int width, int height, bool eol);
 BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret, int width, int height, int eol);
 int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret);
 unsigned lodepng_zlib_decompress (BYTE** out, size_t* outsize, const BYTE* in,
@@ -1592,7 +1580,7 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 			fd->memcpy (buff, count);
 			//memcpy(buff, fd->buffer + fd->buffer_ptr, count);
 			//fd->buffer_ptr += count;
-			answer = ccittdecompress (buff, count, Nret, width, height, 0);
+			answer = ccittdecompress (buff, count, Nret, width, height, false);
 			if (answer) {
 				invert (answer, *Nret);
 			}
@@ -1608,7 +1596,7 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 			//memcpy(buff, fd->buffer + fd->buffer_ptr, count);
 			//fd->buffer_ptr += count;
 			if ((T4options & 0x04) == 0) {
-				answer = ccittdecompress (buff, count, Nret, width, height, 1);
+				answer = ccittdecompress (buff, count, Nret, width, height, true);
 			}
 			else {
 				answer = 0; /* not handling for now */
@@ -1628,9 +1616,10 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 			//memcpy(buff, fd->buffer + fd->buffer_ptr, count);
 			//fd->buffer_ptr += count;
 			answer = ccittgroup4decompress (buff, count, Nret, width, height, 0);
-			if (answer) {
-				invert (answer, *Nret);
-			}
+
+			//if (answer) {
+			//	invert (answer, *Nret);
+			//}
 			delete[] buff;
 			return answer;
 		case COMPRESSION::COMPRESSION_PACKBITS:
@@ -1815,17 +1804,14 @@ BYTE* unpackbits (FileData* fd, unsigned long count, unsigned long* Nret)
 	}
 }
 
-
-
 typedef struct
 {
-	int code;
+	//int code;
 	int prefix;
 	int suffix;
 	int len;
-	BYTE* ptr;
+	//BYTE* ptr;
 } ENTRY;
-
 
 typedef struct huffnode
 {
@@ -1837,17 +1823,14 @@ typedef struct huffnode
 HUFFNODE* addhuffmansymbol (HUFFNODE* root, const char* str, int symbol, int* err);
 void killhuffmantree (HUFFNODE* root);
 
-
-/*
-  add a symbol to the tree
-  root - original tree (start off with null)
-		 str - the code, to add, encoded in ascii
-		 symbol - associated symbol
-		 err - error return sticky, 0 = success
-  Returns: new tree (meaningful internally, after the first external call will
-		   always return the root)
-
-*/
+/// <summary>
+/// add a symbol to the tree
+/// </summary>
+/// <param name="root">original tree (start off with null)</param>
+/// <param name="str">the code, to add, encoded in ascii</param>
+/// <param name="symbol">associated symbol</param>
+/// <param name="err">error return sticky, 0 = success</param>
+/// <returns>new tree (meaningful internally, after the first external call will always return the root)</returns>
 HUFFNODE* addhuffmansymbol (HUFFNODE* root, const char* str, int symbol, int* err)
 {
 	HUFFNODE* answer;
@@ -1865,7 +1848,7 @@ HUFFNODE* addhuffmansymbol (HUFFNODE* root, const char* str, int symbol, int* er
 		return root;
 	}
 	else {
-		answer = (HUFFNODE*)new char[sizeof (HUFFNODE)];
+		answer = new HUFFNODE ();
 		if (!answer) {
 			*err = -1;
 			return 0;
@@ -1886,7 +1869,7 @@ void killhuffmantree (HUFFNODE* root)
 	if (root) {
 		killhuffmantree (root->zero);
 		killhuffmantree (root->one);
-		delete[] root;
+		delete root;
 	}
 }
 
@@ -1907,10 +1890,11 @@ void debughufftree(HUFFNODE *root, int N)
 
 int gethuffmansymbol (HUFFNODE* root, BSTREAM* bs)
 {
+
 	int bit;
 
-	if (root->zero == 0 && root->one == 0) {
-		//printf("\n");
+	if (root->zero == NULL && root->one == NULL) {
+
 		return root->symbol;
 	}
 	bit = bs->getbit ();
@@ -2057,10 +2041,10 @@ struct ccittcode ccitttable[105] =
 	{ 2560, "000000011111", 2560, "000000011111" },
 };
 
-BYTE* ccittdecompress (BYTE* in, unsigned long count, unsigned long* Nret, int width, int height, int eol)
+BYTE* ccittdecompress (BYTE* in, unsigned long count, unsigned long* Nret, int width, int height, bool eol)
 {
-	HUFFNODE* whitetree = 0;
-	HUFFNODE* blacktree = 0;
+	HUFFNODE* whitetree = NULL;
+	HUFFNODE* blacktree = NULL;
 	BSTREAM* bs = 0;
 	BSTREAM* bout = 0;
 	int i, ii;
@@ -2162,7 +2146,7 @@ BYTE* ccittdecompress (BYTE* in, unsigned long count, unsigned long* Nret, int w
 		delete bout;
 		return answer;
 	}
-	catch (some_exception) {
+	catch (some_exception e) {
 		// parse_error:
 		// out_of_memory:
 		killhuffmantree (whitetree);
@@ -2199,7 +2183,7 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 
 	try {
 		Nout = (width + 7) / 8 * height;
-		answer = (BYTE*)new char[Nout];
+		answer = new BYTE[Nout];
 		if (!answer) {
 			throw some_exception ("out_of_memory");  // 例外をスロー	
 		}
@@ -2237,12 +2221,13 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 
 
 		if (eol) {
-			int len = 0;
+			//int len = 0;
 
 			while (bs->getbit () == 0) {
 				continue;
 			}
 		}
+
 		for (i = 0; i < height; i++) {
 			a0 = -1;
 			colour = 0;
@@ -2262,6 +2247,7 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 				}
 
 				mode = static_cast<CCITT>(gethuffmansymbol (twodtree, bs));
+
 				a2 = -1;
 				switch (mode) {
 				case CCITT::CCITT_PASS:
@@ -2321,33 +2307,22 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 					a1 = b1 - 3;
 					break;
 				case CCITT::CCITT_ENDOFFAXBLOCK:
-				{
-					throw some_exception ("endofblock");  // 例外をスロー
-				}
-				break;
+					*Nret = Nout;
+					killhuffmantree (twodtree);
+					killhuffmantree (whitetree);
+					killhuffmantree (blacktree);
+					delete[] reference;
+					delete[] current;
+					return answer;
 				default:
-					//printf("bad %d\n", mode);
-					//for (i = 0; i < 32; i++)
-						//printf("%d", getbit(bs));
-					//printf("\n");
-					//getchar();
-				{
 					throw some_exception ("parse_error");  // 例外をスロー
 				}
-				break;
-				}
+
 				if (a1 <= a0 && a0 != 0) {
-					//printf("bad here a0 %d a1 %d\n", a0, a1);
-					//getchar();
-					{
-						throw some_exception ("parse_error");  // 例外をスロー
-					}
+					throw some_exception ("parse_error");  // 例外をスロー
 				}
-				//printf("a0 %d a1 %d a2 %d\n", a0, a1, a2);
 				if (a0 < 0 || a1 < 0) {
-					{
-						throw some_exception ("parse_error");  // 例外をスロー
-					}
+					throw some_exception ("parse_error");  // 例外をスロー
 				}
 				while (a0 < a1 && a0 < width) {
 					current[a0++] = colour;
@@ -2367,13 +2342,10 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 					colour ^= 1;
 				}
 			}
-			//printf("here a0 %d\n", a0);
 			if (eol) {
-				while (bs->getbit () == 0)
+				while (bs->getbit () == 0) {
 					continue;
-				//printf("mode %d\n", getbit(bs));
-				//int endline = gethuffmansymbol(whitetree, bs);
-				//printf("end %d\n", endline);
+				}
 			}
 			temp = reference;
 			reference = current;
@@ -2386,28 +2358,20 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 			}
 
 		}
+		*Nret = Nout;
+		killhuffmantree (twodtree);
+		killhuffmantree (whitetree);
+		killhuffmantree (blacktree);
+		delete[] reference;
+		delete[] current;
+		return answer;
 	}
 	catch (some_exception e) {
-		if (strcmp (e.what (), "endofblock") == 0) {
-			//endofblock:
-			*Nret = Nout;
-			killhuffmantree (twodtree);
-			killhuffmantree (whitetree);
-			killhuffmantree (blacktree);
-			delete[] reference;
-			delete[] current;
-			return answer;
-		}
-		else if (strcmp (e.what (), "parse_error") == 0) {
-
-			//parse_error:
-				//printf("parse error\n");
-				//getchar();
+		if (strcmp (e.what (), "parse_error") == 0) {
 			*Nret = Nout;
 			return answer;
 		}
 		else if (strcmp (e.what (), "out_of_memory") == 0) {
-			//out_of_memory:
 			return NULL;
 		}
 	}
@@ -2458,7 +2422,7 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 		//memcpy(stream, fd->buffer + fd->buffer_ptr, count);
 		//fd->buffer_ptr += count;
 
-		table = (ENTRY*)new char[sizeof (ENTRY) * (1 << 12)];
+		table = new ENTRY[(1 << 12)];
 
 		for (ii = 0; ii < nextcode; ii++) {
 			table[ii].prefix = 0;
@@ -2523,8 +2487,9 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 						out[pos + len - ii - 1] = (BYTE)table[tempcode].suffix;
 					tempcode = table[tempcode].prefix;
 				}
-				if (out)
+				if (out) {
 					out[pos + len] = (BYTE)ch;
+				}
 				pos += len + 1;
 			}
 			else {
@@ -2535,8 +2500,9 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 
 				for (ii = 0; ii < len; ii++) {
 					ch = table[tempcode].suffix;
-					if (out)
+					if (out) {
 						out[pos + len - ii - 1] = (BYTE)table[tempcode].suffix;
+					}
 					tempcode = table[tempcode].prefix;
 				}
 				pos += len;
@@ -2551,8 +2517,9 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 				if (nextcode == (1 << codelen) - ((bs->endianness == BIG_ENDIAN) ? 1 : 0)) {
 					codelen++;
 
-					if (codelen == 13)
+					if (codelen == 13) {
 						codelen = 12;
+					}
 				}
 			}
 
@@ -2657,10 +2624,10 @@ int BSTREAM::writebit (int bit)
 		return -1;
 	}
 	if (bit) {
-		data[pos] |= bit;
+		data[pos] |= this->bit;
 	}
 	else {
-		data[pos] &= (BYTE)~bit;
+		data[pos] &= (BYTE)~(this->bit);
 	}
 	getbit ();
 	return 0;
@@ -2945,27 +2912,29 @@ double tag_get_entry (TAG* tag, int index)
 	}
 }
 
-/*
-  safe paste function
-	 rgba - destination buffer
-	 width, height - buffer dimensions
-	 tile - the tile to paste
-	 twisth, theight tile width tile height
-	 x, y, x y co-ordinates to paste
-*/
-void rgbapaste (BYTE* rgba, int width, int height, BYTE* tile, int twidth, int theight, int x, int y)
+/// <summary>
+/// safe paste function
+/// </summary>
+/// <param name="rgba">destination buffer</param>
+/// <param name="width">buffer dimensions. width</param>
+/// <param name="height">buffer dimensions. height</param>
+/// <param name="tile">the tile to paste</param>
+/// <param name="twidth">tile width</param>
+/// <param name="theight">tile height</param>
+/// <param name="x"> x co-ordinates to paste</param>
+/// <param name="y"> y co-ordinates to paste</param>
+void rgbapaste (BYTE* rgba, int width, int height, const BYTE* tile, int twidth, int theight, int x, int y)
 {
-	int ix, iy;
-	int tx, ty;
-
-	for (ty = 0; ty < theight; ty++) {
-		iy = y + ty;
-		if (iy < 0)
+	for (auto ty = 0; ty < theight; ty++) {
+		auto iy = y + ty;
+		if (iy < 0) {
 			continue;
-		if (iy >= height)
+		}
+		if (iy >= height) {
 			break;
-		for (tx = 0; tx < twidth; tx++) {
-			ix = x + tx;
+		}
+		for (auto tx = 0; tx < twidth; tx++) {
+			auto ix = x + tx;
 			if (ix < 0) {
 				continue;
 			}
@@ -2994,19 +2963,18 @@ void rgbapaste (BYTE* rgba, int width, int height, BYTE* tile, int twidth, int t
 /// <param name="theight">tile height</param>
 /// <param name="x">x co-ordinates to paste</param>
 /// <param name="y">y co-ordinates to paste</param>
-void greypaste (BYTE* grey, int width, int height, BYTE* tile, int twidth, int theight, int x, int y)
+void greypaste (BYTE* grey, int width, int height, const BYTE* tile, int twidth, int theight, int x, int y)
 {
-	int ix, iy;
-	int tx, ty;
-
-	for (ty = 0; ty < theight; ty++) {
-		iy = y + ty;
-		if (iy < 0)
+	for (auto ty = 0; ty < theight; ty++) {
+		auto iy = y + ty;
+		if (iy < 0) {
 			continue;
-		if (iy >= height)
+		}
+		if (iy >= height) {
 			break;
-		for (tx = 0; tx < twidth; tx++) {
-			ix = x + tx;
+		}
+		for (auto tx = 0; tx < twidth; tx++) {
+			auto ix = x + tx;
 			if (ix < 0) {
 				continue;
 			}
@@ -3021,21 +2989,29 @@ void greypaste (BYTE* grey, int width, int height, BYTE* tile, int twidth, int t
 
 }
 
-void pasteflexible (BYTE* buff, int width, int height, int depth, BYTE* tile, int twidth, int theight, int tdepth, int x, int y)
+/// <summary>
+/// 
+/// </summary>
+/// <param name="buff"></param>
+/// <param name="width"></param>
+/// <param name="height"></param>
+/// <param name="depth"></param>
+/// <param name="tile"></param>
+/// <param name="twidth"></param>
+/// <param name="theight"></param>
+/// <param name="tdepth"></param>
+/// <param name="x"></param>
+/// <param name="y"></param>
+void pasteflexible (BYTE* buff, int width, int height, int depth, const BYTE* tile, int twidth, int theight, int tdepth, int x, int y)
 {
-	int ix, iy;
-	int tx, ty;
-	int isample;
-	int mindepth;
-
-	mindepth = depth < tdepth ? depth : tdepth;
-	for (ty = 0;ty < theight;ty++) {
-		iy = y + ty;
+	auto mindepth = depth < tdepth ? depth : tdepth;
+	for (auto ty = 0;ty < theight;ty++) {
+		auto iy = y + ty;
 		if (iy < 0 || iy >= height) {
 			continue;
 		}
-		for (tx = 0; tx < twidth; tx++) {
-			ix = x + tx;
+		for (auto tx = 0; tx < twidth; tx++) {
+			auto ix = x + tx;
 			if (ix < 0) {
 				continue;
 			}
@@ -3043,7 +3019,7 @@ void pasteflexible (BYTE* buff, int width, int height, int depth, BYTE* tile, in
 				break;
 			}
 
-			for (isample = 0;isample < mindepth;isample++) {
+			for (auto isample = 0;isample < mindepth;isample++) {
 				buff[(iy * width + ix) * depth + isample] = tile[(ty * twidth + tx) * tdepth + isample];
 			}
 		}
@@ -3083,7 +3059,7 @@ char* fread_asciiz (FileData* fd)
 			bufflen = bufflen + bufflen / 2;
 		}
 		if (ch == 0) {
-			char* temp = new char[N];
+			temp = new char[N];
 			if (temp) {
 				memcpy (temp, buff, N);
 				delete[] buff;
@@ -3160,7 +3136,7 @@ double memread_ieee754 (BYTE* buff, int bigendian)
 #else
 		return	(sign * 1.0) / 0.0;
 #endif
-}
+	}
 	if (shift > -1023) {
 		answer = ldexp (fnorm + 1.0, shift);
 		return answer * sign;
@@ -3405,25 +3381,63 @@ the huffman tree of the dynamic huffman tree lengths is generated*/
 const unsigned CLCL_ORDER[NUM_CODE_LENGTH_CODES] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
 /* ////////////////////////////////////////////////////////////////////////// */
-
-/*
-Huffman tree struct, containing multiple representations of the tree
-*/
-typedef struct HuffmanTree
+#include <iostream>
+/// <summary>
+/// Huffman tree struct, containing multiple representations of the tree
+/// </summary>
+class HuffmanTree
 {
+public:
 	unsigned* tree2d;
 	unsigned* tree1d;
 	unsigned* lengths; /*the lengths of the codes of the 1d-tree*/
 	unsigned maxbitlen; /*maximum number of bits a single code can get*/
 	unsigned numcodes; /*number of symbols in the alphabet = number of codes*/
-} HuffmanTree;
+	//void HuffmanTree_init (HuffmanTree* tree);
+	//void HuffmanTree_cleanup (HuffmanTree* tree)
+	/// <summary>
+	/// constructor
+	/// </summary>
+	HuffmanTree ()
+	{
+		this->tree2d = NULL;
+		this->tree1d = NULL;
+		this->lengths = NULL;
+		maxbitlen = 0;
+		numcodes = 0;
+	}
+
+	/// <summary>
+	/// destructor
+	/// </summary>
+	~HuffmanTree ()
+	{
+		delete[] this->tree2d;
+		delete[] this->tree1d;
+		delete[] this->lengths;
+	}
+
+	///// <summary>
+	///// function used for debug purposes to draw the tree in ascii art with C++
+	///// </summary>
+	//void HuffmanTree_draw ()
+	//{
+	//	std::cout << "tree. length: " << this->numcodes << " maxbitlen: " << this->maxbitlen << std::endl;
+	//	for (size_t i = 0; i < this->tree1d->size; i++) {
+	//		if (this->lengths->data[i])
+	//			std::cout << i << " " << this->tree1d->data[i] << " " << this->lengths->data[i] << std::endl;
+	//	}
+	//	std::cout << std::endl;
+	//}
+
+};
 
 
 unsigned getTreeInflateDynamic (HuffmanTree* tree_ll, HuffmanTree* tree_d, const BYTE* in, size_t* bp, size_t inlength);
 unsigned generateFixedLitLenTree (HuffmanTree* tree);
 unsigned generateFixedDistanceTree (HuffmanTree* tree);
-void HuffmanTree_init (HuffmanTree* tree);
-void HuffmanTree_cleanup (HuffmanTree* tree);
+
+;
 void getTreeInflateFixed (HuffmanTree* tree_ll, HuffmanTree* tree_d);
 unsigned huffmanTree_make2DTree (HuffmanTree* tree);
 unsigned huffmanTree_make_from_lengths (HuffmanTree* tree, const unsigned* bitlen, size_t numcodes, unsigned maxbitlen);
@@ -3432,275 +3446,321 @@ unsigned huffman_decode_symbol (const BYTE* in, size_t* bp, const HuffmanTree* c
 /* /////////////////////////////////////////////////////////////////////////// */
 
 /*dynamic vector of unsigned chars*/
-typedef struct ucvector
+class ucvector
 {
+public:
 	BYTE* data;
 	size_t size; /*used size*/
 	size_t allocsize; /*allocated size*/
-} ucvector;
+	//unsigned inflateNoCompression (ucvector* out, const BYTE* in, size_t* bp, size_t* pos, size_t inlength);
+	//unsigned inflateHuffmanBlock (ucvector* out, const BYTE* in, size_t* bp,size_t* pos, size_t inlength, unsigned btype);
 
-unsigned inflateNoCompression (ucvector* out, const BYTE* in, size_t* bp, size_t* pos, size_t inlength);
-unsigned inflateHuffmanBlock (ucvector* out, const BYTE* in, size_t* bp,
-							  size_t* pos, size_t inlength, unsigned btype);
+	/// <summary>
+	/// constructor
+	/// </summary>
+	ucvector ()
+	{
+		this->data = NULL;
+		this->size = this->allocsize = 0;
+	}
+
+	/// <summary>
+	/// destructor
+	/// </summary>
+	~ucvector ()
+	{
+		this->size = 0;
+		this->allocsize = 0;
+		delete[] this->data;
+		this->data = NULL;
+	}
+
+	/// <summary>
+	/// resize
+	/// </summary>
+	/// <param name="size">new size</param>
+	/// <returns>returns 1 if success, 0 if failure ==> nothing done</returns>
+	unsigned ucvector_resize (size_t size)
+	{
+		if (size * sizeof (BYTE) > this->allocsize) {
+			size_t new_size = size * sizeof (BYTE) * 2;
+			// 領域確保
+			void* new_data = new char[new_size] {};
+			if (new_data) {
+				// 旧領域からコピー
+				memcpy (data, this->data, this->allocsize);
+				// 旧領域削除
+				delete[] this->data;
+				this->allocsize = new_size;
+				this->data = (BYTE*)new_data;
+				this->size = size;
+			}
+			else {
+				return 0; /*error: not enough memory*/
+			}
+		}
+		else {
+			this->size = size;
+		}
+		return 1;
+	}
+
+	/// <summary>
+	/// you can both convert from vector to buffer&size and vica versa.
+	/// If you use init_buffer to take over a buffer and size, it is not needed to use cleanup
+	/// </summary>
+	/// <param name="buffer">set buffer data(tobe deleted)</param>
+	/// <param name="size">initial size</param>
+	void ucvector_init_buffer (BYTE* buffer, size_t size)
+	{
+		this->data = buffer;
+		this->allocsize = size;
+		this->size = size;
+	}
+
+	/// <summary>
+	/// inflate no compression
+	/// </summary>
+	/// <param name="in"></param>
+	/// <param name="bp"></param>
+	/// <param name="pos"></param>
+	/// <param name="inlength"></param>
+	/// <returns></returns>
+	unsigned inflateNoCompression (const BYTE* in, size_t* bp, size_t* pos, size_t inlength)
+	{
+		/*go to first boundary of byte*/
+		size_t p;
+		unsigned LEN, NLEN, n, error = 0;
+		while (((*bp) & 0x7) != 0) (*bp)++;
+		p = (*bp) / 8; /*byte position*/
+
+		/*read LEN (2 bytes) and NLEN (2 bytes)*/
+		if (p >= inlength - 4) return 52; /*error, bit pointer will jump past memory*/
+		LEN = in[p] + 256 * in[p + 1]; p += 2;
+		NLEN = in[p] + 256 * in[p + 1]; p += 2;
+
+		/*check if 16-bit NLEN is really the one's complement of LEN*/
+		if (LEN + NLEN != 65535) return 21; /*error: NLEN is not one's complement of LEN*/
+
+		if ((*pos) + LEN >= this->size) {
+			if (!ucvector_resize ((*pos) + LEN)) {
+				return 83; /*alloc fail*/
+			}
+		}
+
+		/*read the literal data: LEN bytes are now stored in the out buffer*/
+		if (p + LEN > inlength) return 23; /*error: reading outside of in buffer*/
+		for (n = 0; n < LEN; n++) this->data[(*pos)++] = in[p++];
+
+		(*bp) = p * 8;
+
+		return error;
+	}
+
+	/// <summary>
+	/// inflate a block with dynamic of fixed Huffman tree
+	/// </summary>
+	/// <param name="in"></param>
+	/// <param name="bp"></param>
+	/// <param name="pos"></param>
+	/// <param name="inlength"></param>
+	/// <param name="btype"></param>
+	/// <returns></returns>
+	unsigned inflateHuffmanBlock (const BYTE* in, size_t* bp, size_t* pos, size_t inlength, unsigned btype)
+	{
+		unsigned error = 0;
+		HuffmanTree* tree_ll = new HuffmanTree (); /*the huffman tree for literal and length codes*/
+		HuffmanTree* tree_d = new HuffmanTree (); /*the huffman tree for distance codes*/
+		size_t inbitlength = inlength * 8;
+
+
+		if (btype == 1) getTreeInflateFixed (tree_ll, tree_d);
+		else if (btype == 2) {
+			error = getTreeInflateDynamic (tree_ll, tree_d, in, bp, inlength);
+		}
+
+		while (!error) /*decode all symbols until end reached, breaks at end code*/
+		{
+			/*code_ll is literal, length or end code*/
+			unsigned code_ll = huffman_decode_symbol (in, bp, tree_ll, inbitlength);
+			if (code_ll <= 255) /*literal symbol*/
+			{
+				if ((*pos) >= this->size) {
+					/*reserve more room at once*/
+					if (!this->ucvector_resize (((*pos) + 1) * 2)) {
+						ERROR_BREAK (83 /*alloc fail*/);
+					}
+				}
+				this->data[(*pos)] = (BYTE)(code_ll);
+				(*pos)++;
+			}
+			else if (code_ll >= FIRST_LENGTH_CODE_INDEX && code_ll <= LAST_LENGTH_CODE_INDEX) /*length code*/
+			{
+				unsigned code_d, distance;
+				unsigned numextrabits_l, numextrabits_d; /*extra bits for length and distance*/
+				size_t start, forward, backward, length;
+
+				/*part 1: get length base*/
+				length = LENGTHBASE[code_ll - FIRST_LENGTH_CODE_INDEX];
+
+				/*part 2: get extra bits and add the value of that to length*/
+				numextrabits_l = LENGTHEXTRA[code_ll - FIRST_LENGTH_CODE_INDEX];
+				if (*bp >= inbitlength) {
+					ERROR_BREAK (51); /*error, bit pointer will jump past memory*/
+				}
+				length += readBitsFromStream (bp, in, numextrabits_l);
+
+				/*part 3: get distance code*/
+				code_d = huffman_decode_symbol (in, bp, tree_d, inbitlength);
+				if (code_d > 29) {
+					if (code_ll == (unsigned)(-1)) /*huffman_decode_symbol returns (unsigned)(-1) in case of error*/
+					{
+						/*return error code 10 or 11 depending on the situation that happened in huffman_decode_symbol
+						(10=no endcode, 11=wrong jump outside of tree)*/
+						error = (*bp) > inlength * 8 ? 10 : 11;
+					}
+					else error = 18; /*error: invalid distance code (30-31 are never used)*/
+					break;
+				}
+				distance = DISTANCEBASE[code_d];
+
+				/*part 4: get extra bits from distance*/
+				numextrabits_d = DISTANCEEXTRA[code_d];
+				if (*bp >= inbitlength) {
+					ERROR_BREAK (51); /*error, bit pointer will jump past memory*/
+				}
+
+				distance += readBitsFromStream (bp, in, numextrabits_d);
+
+				/*part 5: fill in all the out[n] values based on the length and dist*/
+				start = (*pos);
+				if (distance > start) {
+					ERROR_BREAK (52); /*too long backward distance*/
+				}
+				backward = start - distance;
+				if ((*pos) + length >= this->size) {
+					/*reserve more room at once*/
+					if (!this->ucvector_resize (((*pos) + length) * 2)) {
+						ERROR_BREAK (83 /*alloc fail*/);
+					}
+				}
+
+				for (forward = 0; forward < length; forward++) {
+					this->data[(*pos)] = this->data[backward];
+					(*pos)++;
+					backward++;
+					if (backward >= start) backward = start - distance;
+				}
+			}
+			else if (code_ll == 256) {
+				break; /*end code, break the loop*/
+			}
+			else /*if(code == (unsigned)(-1))*/ /*huffman_decode_symbol returns (unsigned)(-1) in case of error*/
+			{
+				/*return error code 10 or 11 depending on the situation that happened in huffman_decode_symbol
+				(10=no endcode, 11=wrong jump outside of tree)*/
+				error = (*bp) > inlength * 8 ? 10 : 11;
+				break;
+			}
+		}
+
+		delete tree_ll;
+		delete tree_d;
+
+		return error;
+	}
+};
+
+
+
 
 unsigned lodepng_inflate (BYTE** out, size_t* outsize, const BYTE* in, size_t insize, const LodePNGDecompressSettings* settings);
 
 unsigned lodepng_inflatev (ucvector* out, const BYTE* in, size_t insize, const LodePNGDecompressSettings* settings);
 
 
-void ucvector_cleanup (void* p)
+/// <summary>
+/// dynamic vector of unsigned ints
+/// </summary>
+class uivector
 {
-	((ucvector*)p)->size = ((ucvector*)p)->allocsize = 0;
-	delete[] ((ucvector*)p)->data;
-	((ucvector*)p)->data = NULL;
-}
-
-/*returns 1 if success, 0 if failure ==> nothing done*/
-unsigned ucvector_resize (ucvector* p, size_t size)
-{
-	if (size * sizeof (BYTE) > p->allocsize) {
-		size_t newsize = size * sizeof (BYTE) * 2;
-		// 領域確保
-		void* data = new char[newsize];
-		if (data) {
-			// 旧領域からコピー
-			memcpy (data, p->data, p->allocsize);
-			// 旧領域削除
-			delete[] p->data;
-			p->allocsize = newsize;
-			p->data = (BYTE*)data;
-			p->size = size;
-		}
-		else return 0; /*error: not enough memory*/
-	}
-	else {
-		p->size = size;
-	}
-	return 1;
-}
-
-void ucvector_init (ucvector* p)
-{
-	p->data = NULL;
-	p->size = p->allocsize = 0;
-}
-
-/*you can both convert from vector to buffer&size and vica versa. If you use
-init_buffer to take over a buffer and size, it is not needed to use cleanup*/
-void ucvector_init_buffer (ucvector* p, BYTE* buffer, size_t size)
-{
-	p->data = buffer;
-	p->allocsize = p->size = size;
-}
-
-/*function used for debug purposes to draw the tree in ascii art with C++*/
-/*#include <iostream>
-void HuffmanTree_draw(HuffmanTree* tree)
-{
-std::cout << "tree. length: " << tree->numcodes << " maxbitlen: " << tree->maxbitlen << std::endl;
-for(size_t i = 0; i < tree->tree1d.size; i++)
-{
-if(tree->lengths.data[i])
-std::cout << i << " " << tree->tree1d.data[i] << " " << tree->lengths.data[i] << std::endl;
-}
-std::cout << std::endl;
-}*/
-
-/*dynamic vector of unsigned ints*/
-typedef struct uivector
-{
+public:
 	unsigned* data;
 	size_t size; /*size in number of unsigned longs*/
 	size_t allocsize; /*allocated size in bytes*/
-} uivector;
+	/// <summary>
+	/// constructor
+	/// </summary>
+	uivector ()
+	{
+		this->data = NULL;
+		this->size = 0;
+		this->allocsize = 0;
+	}
 
-void uivector_cleanup (void* p)
-{
-	((uivector*)p)->size = ((uivector*)p)->allocsize = 0;
-	delete[] ((uivector*)p)->data;
-	((uivector*)p)->data = NULL;
-}
+	/// <summary>
+	/// destructor
+	/// </summary>
+	~uivector ()
+	{
+		this->size = 0;
+		this->allocsize = 0;
+		delete[] this->data;
+		this->data = NULL;
+	}
 
-/*returns 1 if success, 0 if failure ==> nothing done*/
-unsigned uivector_resize (uivector* p, size_t size)
-{
-	if (size * sizeof (unsigned) > p->allocsize) {
-		size_t newsize = size * sizeof (unsigned) * 2;
-		// 領域取得
-		void* data = new char[newsize];
-		if (data) {
-			// 旧領域からコピー
-			memcpy (data, p->data, p->allocsize);
-			// 削除
-			delete[] p->data;
-			p->allocsize = newsize;
-			p->data = (unsigned*)data;
-			p->size = size;
-		}
-		else {
+	/// <summary>
+	/// resize and give all new elements the value
+	/// </summary>
+	/// <param name="size">new size</param>
+	/// <param name="value">new default value</param>
+	/// <returns>1 if success.</returns>
+	unsigned uivector_resizev (size_t size, unsigned value)
+	{
+		size_t oldsize = this->size;
+		if (!uivector_resize (size)) {
 			return 0;
 		}
-	}
-	else {
-		p->size = size;
-	}
-	return 1;
-}
-
-/*resize and give all new elements the value*/
-unsigned uivector_resizev (uivector* p, size_t size, unsigned value)
-{
-	size_t oldsize = p->size, i;
-	if (!uivector_resize (p, size)) return 0;
-	for (i = oldsize; i < size; i++) p->data[i] = value;
-	return 1;
-}
-
-void uivector_init (uivector* p)
-{
-	p->data = NULL;
-	p->size = p->allocsize = 0;
-}
-
-
-
-
-unsigned inflateNoCompression (ucvector* out, const BYTE* in, size_t* bp, size_t* pos, size_t inlength)
-{
-	/*go to first boundary of byte*/
-	size_t p;
-	unsigned LEN, NLEN, n, error = 0;
-	while (((*bp) & 0x7) != 0) (*bp)++;
-	p = (*bp) / 8; /*byte position*/
-
-	/*read LEN (2 bytes) and NLEN (2 bytes)*/
-	if (p >= inlength - 4) return 52; /*error, bit pointer will jump past memory*/
-	LEN = in[p] + 256 * in[p + 1]; p += 2;
-	NLEN = in[p] + 256 * in[p + 1]; p += 2;
-
-	/*check if 16-bit NLEN is really the one's complement of LEN*/
-	if (LEN + NLEN != 65535) return 21; /*error: NLEN is not one's complement of LEN*/
-
-	if ((*pos) + LEN >= out->size) {
-		if (!ucvector_resize (out, (*pos) + LEN)) return 83; /*alloc fail*/
+		for (auto i = oldsize; i < size; i++) {
+			this->data[i] = value;
+		}
+		return 1;
 	}
 
-	/*read the literal data: LEN bytes are now stored in the out buffer*/
-	if (p + LEN > inlength) return 23; /*error: reading outside of in buffer*/
-	for (n = 0; n < LEN; n++) out->data[(*pos)++] = in[p++];
 
-	(*bp) = p * 8;
-
-	return error;
-}
-
-/*inflate a block with dynamic of fixed Huffman tree*/
-unsigned inflateHuffmanBlock (ucvector* out, const BYTE* in, size_t* bp,
-							  size_t* pos, size_t inlength, unsigned btype)
-{
-	unsigned error = 0;
-	HuffmanTree tree_ll; /*the huffman tree for literal and length codes*/
-	HuffmanTree tree_d; /*the huffman tree for distance codes*/
-	size_t inbitlength = inlength * 8;
-
-	HuffmanTree_init (&tree_ll);
-	HuffmanTree_init (&tree_d);
-
-	if (btype == 1) getTreeInflateFixed (&tree_ll, &tree_d);
-	else if (btype == 2) {
-		error = getTreeInflateDynamic (&tree_ll, &tree_d, in, bp, inlength);
-	}
-
-	while (!error) /*decode all symbols until end reached, breaks at end code*/
+	/// <summary>
+	/// resize
+	/// </summary>
+	/// <param name="size">new size</param>
+	/// <returns>returns 1 if success, 0 if failure ==> nothing done</returns>
+	unsigned uivector_resize (size_t size)
 	{
-		/*code_ll is literal, length or end code*/
-		unsigned code_ll = huffman_decode_symbol (in, bp, &tree_ll, inbitlength);
-		if (code_ll <= 255) /*literal symbol*/
-		{
-			if ((*pos) >= out->size) {
-				/*reserve more room at once*/
-				if (!ucvector_resize (out, ((*pos) + 1) * 2)) {
-					ERROR_BREAK (83 /*alloc fail*/);
-				}
+		if (size * sizeof (unsigned) > this->allocsize) {
+			size_t new_size = size * sizeof (unsigned) * 2;
+			// 領域取得
+			void* new_data = new char[new_size];
+			if (new_data) {
+				// 旧領域からコピー
+				memcpy (data, this->data, this->allocsize);
+				// 削除
+				delete[] this->data;
+				this->allocsize = new_size;
+				this->data = (unsigned*)new_data;
+				this->size = size;
 			}
-			out->data[(*pos)] = (BYTE)(code_ll);
-			(*pos)++;
-		}
-		else if (code_ll >= FIRST_LENGTH_CODE_INDEX && code_ll <= LAST_LENGTH_CODE_INDEX) /*length code*/
-		{
-			unsigned code_d, distance;
-			unsigned numextrabits_l, numextrabits_d; /*extra bits for length and distance*/
-			size_t start, forward, backward, length;
-
-			/*part 1: get length base*/
-			length = LENGTHBASE[code_ll - FIRST_LENGTH_CODE_INDEX];
-
-			/*part 2: get extra bits and add the value of that to length*/
-			numextrabits_l = LENGTHEXTRA[code_ll - FIRST_LENGTH_CODE_INDEX];
-			if (*bp >= inbitlength) {
-				ERROR_BREAK (51); /*error, bit pointer will jump past memory*/
-			}
-			length += readBitsFromStream (bp, in, numextrabits_l);
-
-			/*part 3: get distance code*/
-			code_d = huffman_decode_symbol (in, bp, &tree_d, inbitlength);
-			if (code_d > 29) {
-				if (code_ll == (unsigned)(-1)) /*huffman_decode_symbol returns (unsigned)(-1) in case of error*/
-				{
-					/*return error code 10 or 11 depending on the situation that happened in huffman_decode_symbol
-					(10=no endcode, 11=wrong jump outside of tree)*/
-					error = (*bp) > inlength * 8 ? 10 : 11;
-				}
-				else error = 18; /*error: invalid distance code (30-31 are never used)*/
-				break;
-			}
-			distance = DISTANCEBASE[code_d];
-
-			/*part 4: get extra bits from distance*/
-			numextrabits_d = DISTANCEEXTRA[code_d];
-			if (*bp >= inbitlength) {
-				ERROR_BREAK (51); /*error, bit pointer will jump past memory*/
-			}
-
-			distance += readBitsFromStream (bp, in, numextrabits_d);
-
-			/*part 5: fill in all the out[n] values based on the length and dist*/
-			start = (*pos);
-			if (distance > start) {
-				ERROR_BREAK (52); /*too long backward distance*/
-			}
-			backward = start - distance;
-			if ((*pos) + length >= out->size) {
-				/*reserve more room at once*/
-				if (!ucvector_resize (out, ((*pos) + length) * 2)) {
-					ERROR_BREAK (83 /*alloc fail*/);
-				}
-			}
-
-			for (forward = 0; forward < length; forward++) {
-				out->data[(*pos)] = out->data[backward];
-				(*pos)++;
-				backward++;
-				if (backward >= start) backward = start - distance;
+			else {
+				return 0;
 			}
 		}
-		else if (code_ll == 256) {
-			break; /*end code, break the loop*/
+		else {
+			this->size = size;
 		}
-		else /*if(code == (unsigned)(-1))*/ /*huffman_decode_symbol returns (unsigned)(-1) in case of error*/
-		{
-			/*return error code 10 or 11 depending on the situation that happened in huffman_decode_symbol
-			(10=no endcode, 11=wrong jump outside of tree)*/
-			error = (*bp) > inlength * 8 ? 10 : 11;
-			break;
-		}
+		return 1;
 	}
 
-	HuffmanTree_cleanup (&tree_ll);
-	HuffmanTree_cleanup (&tree_d);
 
-	return error;
-}
+};
+
 
 /*get the tree of a deflated block with fixed tree, as specified in the deflate specification*/
 void getTreeInflateFixed (HuffmanTree* tree_ll, HuffmanTree* tree_d)
@@ -3724,7 +3784,7 @@ unsigned getTreeInflateDynamic (HuffmanTree* tree_ll, HuffmanTree* tree_d,
 	unsigned* bitlen_d = 0; /*dist code lengths*/
 	/*code length code lengths ("clcl"), the bit lengths of the huffman tree used to compress bitlen_ll and bitlen_d*/
 	unsigned* bitlen_cl = 0;
-	HuffmanTree tree_cl; /*the code tree for code length codes (the huffman tree for compressed huffman trees)*/
+	HuffmanTree* tree_cl = new HuffmanTree (); /*the code tree for code length codes (the huffman tree for compressed huffman trees)*/
 
 	if ((*bp) >> 3 >= inlength - 2) return 49; /*error: the bit pointer is or will go past the memory*/
 
@@ -3735,12 +3795,10 @@ unsigned getTreeInflateDynamic (HuffmanTree* tree_ll, HuffmanTree* tree_d,
 	/*number of code length codes. Unlike the spec, the value 4 is added to it here already*/
 	HCLEN = readBitsFromStream (bp, in, 4) + 4;
 
-	HuffmanTree_init (&tree_cl);
-
 	while (!error) {
 		/*read the code length codes out of 3 * (amount of code length codes) bits*/
 
-		bitlen_cl = (unsigned*)new char[NUM_CODE_LENGTH_CODES * sizeof (unsigned)];
+		bitlen_cl = new unsigned[NUM_CODE_LENGTH_CODES];
 		if (!bitlen_cl) {
 			ERROR_BREAK (83 /*alloc fail*/);
 		}
@@ -3750,22 +3808,26 @@ unsigned getTreeInflateDynamic (HuffmanTree* tree_ll, HuffmanTree* tree_d,
 			else bitlen_cl[CLCL_ORDER[i]] = 0; /*if not, it must stay 0*/
 		}
 
-		error = huffmanTree_make_from_lengths (&tree_cl, bitlen_cl, NUM_CODE_LENGTH_CODES, 7);
+		error = huffmanTree_make_from_lengths (tree_cl, bitlen_cl, NUM_CODE_LENGTH_CODES, 7);
 		if (error) break;
 
 		/*now we can use this tree to read the lengths for the tree that this function will return*/
-		bitlen_ll = (unsigned*)new char[NUM_DEFLATE_CODE_SYMBOLS * sizeof (unsigned)];
-		bitlen_d = (unsigned*)new char[NUM_DISTANCE_SYMBOLS * sizeof (unsigned)];
+		bitlen_ll = new unsigned[NUM_DEFLATE_CODE_SYMBOLS];
+		bitlen_d = new unsigned[NUM_DISTANCE_SYMBOLS];
 		if (!bitlen_ll || !bitlen_d) {
 			ERROR_BREAK (83 /*alloc fail*/);
 		}
-		for (i = 0; i < NUM_DEFLATE_CODE_SYMBOLS; i++) bitlen_ll[i] = 0;
-		for (i = 0; i < NUM_DISTANCE_SYMBOLS; i++) bitlen_d[i] = 0;
+		for (i = 0; i < NUM_DEFLATE_CODE_SYMBOLS; i++) {
+			bitlen_ll[i] = 0;
+		}
+		for (i = 0; i < NUM_DISTANCE_SYMBOLS; i++) {
+			bitlen_d[i] = 0;
+		}
 
 		/*i is the current symbol we're reading in the part that contains the code lengths of lit/len and dist codes*/
 		i = 0;
 		while (i < HLIT + HDIST) {
-			unsigned code = huffman_decode_symbol (in, bp, &tree_cl, inbitlength);
+			unsigned code = huffman_decode_symbol (in, bp, tree_cl, inbitlength);
 			if (code <= 15) /*a length code*/
 			{
 				if (i < HLIT) bitlen_ll[i] = code;
@@ -3878,7 +3940,7 @@ unsigned getTreeInflateDynamic (HuffmanTree* tree_ll, HuffmanTree* tree_d,
 	delete[] bitlen_cl;
 	delete[] bitlen_ll;
 	delete[] bitlen_d;
-	HuffmanTree_cleanup (&tree_cl);
+	delete tree_cl;
 
 	return error;
 }
@@ -3887,7 +3949,7 @@ unsigned getTreeInflateDynamic (HuffmanTree* tree_ll, HuffmanTree* tree_d,
 unsigned generateFixedLitLenTree (HuffmanTree* tree)
 {
 	unsigned i, error = 0;
-	unsigned* bitlen = (unsigned*)new char[NUM_DEFLATE_CODE_SYMBOLS * sizeof (unsigned)];
+	unsigned* bitlen = new unsigned[NUM_DEFLATE_CODE_SYMBOLS];
 	if (!bitlen) return 83; /*alloc fail*/
 
 	/*288 possible codes: 0-255=literals, 256=endcode, 257-285=lengthcodes, 286-287=unused*/
@@ -3910,7 +3972,7 @@ unsigned generateFixedLitLenTree (HuffmanTree* tree)
 unsigned generateFixedDistanceTree (HuffmanTree* tree)
 {
 	unsigned i, error = 0;
-	unsigned* bitlen = (unsigned*)new char[NUM_DISTANCE_SYMBOLS * sizeof (unsigned)];
+	unsigned* bitlen = new unsigned[NUM_DISTANCE_SYMBOLS];
 	if (!bitlen) {
 		return 83; /*alloc fail*/
 	}
@@ -3924,27 +3986,7 @@ unsigned generateFixedDistanceTree (HuffmanTree* tree)
 	delete[] bitlen;
 	return error;
 }
-/// <summary>
-/// 
-/// </summary>
-/// <param name="tree"></param>
-void HuffmanTree_init (HuffmanTree* tree)
-{
-	tree->tree2d = 0;
-	tree->tree1d = 0;
-	tree->lengths = 0;
-}
 
-/// <summary>
-/// 
-/// </summary>
-/// <param name="tree"></param>
-void HuffmanTree_cleanup (HuffmanTree* tree)
-{
-	delete[] tree->tree2d;
-	delete[] tree->tree1d;
-	delete[] tree->lengths;
-}
 
 /*the tree representation used by the decoder. return value is error*/
 unsigned huffmanTree_make2DTree (HuffmanTree* tree)
@@ -3997,7 +4039,9 @@ unsigned huffmanTree_make2DTree (HuffmanTree* tree)
 	}
 
 	for (n = 0; n < tree->numcodes * 2; n++) {
-		if (tree->tree2d[n] == 32767) tree->tree2d[n] = 0; /*remove possible remaining 32767's*/
+		if (tree->tree2d[n] == 32767) {
+			tree->tree2d[n] = 0; /*remove possible remaining 32767's*/
+		}
 	}
 
 	return 0;
@@ -4012,39 +4056,41 @@ unsigned huffmanTree_make2DTree (HuffmanTree* tree)
 /// <returns></returns>
 unsigned huffmanTree_make_from_lengths2 (HuffmanTree* tree)
 {
-	uivector blcount;
-	uivector nextcode;
-	unsigned bits, n, error = 0;
+	uivector* blcount = new uivector ();
+	uivector* nextcode = new uivector ();;
+	unsigned error = 0;
 
-	uivector_init (&blcount);
-	uivector_init (&nextcode);
+	//uivector_init (&blcount);
+	//uivector_init (&nextcode);
 
-	tree->tree1d = (unsigned*)new char[tree->numcodes * sizeof (unsigned)];
+	tree->tree1d = new unsigned[tree->numcodes];
 	if (!tree->tree1d) {
 		error = 83; /*alloc fail*/
 	}
 
-	if (!uivector_resizev (&blcount, tree->maxbitlen + 1, 0) || !uivector_resizev (&nextcode, tree->maxbitlen + 1, 0)) {
+	if (!blcount->uivector_resizev (tree->maxbitlen + 1, 0) || !nextcode->uivector_resizev (tree->maxbitlen + 1, 0)) {
 		error = 83; /*alloc fail*/
 	}
 
 	if (!error) {
 		/*step 1: count number of instances of each code length*/
-		for (bits = 0; bits < tree->numcodes; bits++) {
-			blcount.data[tree->lengths[bits]]++;
+		for (auto bits = 0U; bits < tree->numcodes; bits++) {
+			blcount->data[tree->lengths[bits]]++;
 		}
 		/*step 2: generate the nextcode values*/
-		for (bits = 1; bits <= tree->maxbitlen; bits++) {
-			nextcode.data[bits] = (nextcode.data[bits - 1] + blcount.data[bits - 1]) << 1;
+		for (auto bits = 1U; bits <= tree->maxbitlen; bits++) {
+			nextcode->data[bits] = (nextcode->data[bits - 1] + blcount->data[bits - 1]) << 1;
 		}
 		/*step 3: generate all the codes*/
-		for (n = 0; n < tree->numcodes; n++) {
-			if (tree->lengths[n] != 0) tree->tree1d[n] = nextcode.data[tree->lengths[n]]++;
+		for (auto n = 0U; n < tree->numcodes; n++) {
+			if (tree->lengths[n] != 0) {
+				tree->tree1d[n] = nextcode->data[tree->lengths[n]]++;
+			}
 		}
 	}
 
-	uivector_cleanup (&blcount);
-	uivector_cleanup (&nextcode);
+	delete blcount;
+	delete nextcode;
 
 	if (!error) {
 		return huffmanTree_make2DTree (tree);
@@ -4068,7 +4114,7 @@ unsigned huffmanTree_make_from_lengths (HuffmanTree* tree, const unsigned* bitle
 										size_t numcodes, unsigned maxbitlen)
 {
 	unsigned i;
-	tree->lengths = (unsigned*)new char[numcodes * sizeof (unsigned)];
+	tree->lengths = new unsigned[numcodes];
 	if (!tree->lengths) {
 		return 83; /*alloc fail*/
 	}
@@ -4088,14 +4134,16 @@ inbitlength is the length of the complete buffer, in bits (so its byte length ti
 unsigned huffman_decode_symbol (const BYTE* in, size_t* bp,
 								const HuffmanTree* codetree, size_t inbitlength)
 {
-	unsigned treepos = 0, ct;
+	unsigned treepos = 0;
 	for (;;) {
-		if (*bp >= inbitlength) return (unsigned)(-1); /*error: end of input memory reached without endcode*/
+		if (*bp >= inbitlength) {
+			return (unsigned)(-1); /*error: end of input memory reached without endcode*/
+		}
 		/*
 		decode the symbol from the tree. The "readBitFromStream" code is inlined in
 		the expression below because this is the biggest bottleneck while decoding
 		*/
-		ct = codetree->tree2d[(treepos << 1) + READBIT (*bp, in)];
+		auto ct = codetree->tree2d[(treepos << 1) + READBIT (*bp, in)];
 		(*bp)++;
 		if (ct < codetree->numcodes) {
 			return ct; /*the symbol is decoded, return it*/
@@ -4129,11 +4177,11 @@ unsigned lodepng_inflate (BYTE** out, size_t* outsize, const BYTE* in, size_t in
 	else {
 #endif /*LODEPNG_CUSTOM_ZLIB_DECODER == 2*/
 		unsigned error;
-		ucvector v;
-		ucvector_init_buffer (&v, *out, *outsize);
-		error = lodepng_inflatev (&v, in, insize, settings);
-		*out = v.data;
-		*outsize = v.size;
+		ucvector* v = new ucvector ();
+		v->ucvector_init_buffer (*out, *outsize);
+		error = lodepng_inflatev (v, in, insize, settings);
+		*out = v->data;
+		*outsize = v->size;
 		return error;
 #if LODEPNG_CUSTOM_ZLIB_DECODER == 2
 	}
@@ -4162,7 +4210,9 @@ unsigned lodepng_inflatev (ucvector* out, const BYTE* in, size_t insize, const L
 
 	while (!BFINAL) {
 		unsigned BTYPE;
-		if (bp + 2 >= insize * 8) return 52; /*error, bit pointer will jump past memory*/
+		if (bp + 2 >= insize * 8) {
+			return 52; /*error, bit pointer will jump past memory*/
+		}
 		BFINAL = readBitFromStream (&bp, in);
 		BTYPE = 1 * readBitFromStream (&bp, in);
 		BTYPE += 2 * readBitFromStream (&bp, in);
@@ -4171,10 +4221,10 @@ unsigned lodepng_inflatev (ucvector* out, const BYTE* in, size_t insize, const L
 			return 20; /*error: invalid BTYPE*/
 		}
 		else if (BTYPE == 0) {
-			error = inflateNoCompression (out, in, &bp, &pos, insize); /*no compression*/
+			error = out->inflateNoCompression (in, &bp, &pos, insize); /*no compression*/
 		}
 		else {
-			error = inflateHuffmanBlock (out, in, &bp, &pos, insize, BTYPE); /*compression, BTYPE 01 or 10*/
+			error = out->inflateHuffmanBlock (in, &bp, &pos, insize, BTYPE); /*compression, BTYPE 01 or 10*/
 		}
 
 		if (error) {
@@ -4183,7 +4233,9 @@ unsigned lodepng_inflatev (ucvector* out, const BYTE* in, size_t insize, const L
 	}
 
 	/*Only now we know the true size of out, resize it to that*/
-	if (!ucvector_resize (out, pos)) error = 83; /*alloc fail*/
+	if (!out->ucvector_resize (pos)) {
+		error = 83; /*alloc fail*/
+	}
 
 	return error;
 }
@@ -4191,23 +4243,22 @@ unsigned lodepng_inflatev (ucvector* out, const BYTE* in, size_t insize, const L
 /* Main deflate section
 /*///////////////////////////////////////////////////////////////////////////////////////////////*/
 
-/*
-  (Malcolm comment)
-  Lode's main function, call this
-	 out - malloced return for decompressed output
-		   outsize - return for output size
-		   in - the zlib stream
-		   insize - number of bytes in input stream
-		   settings -
-			 typedef struct LodePNGDecompressSettings
-			 {
-			 unsigned ignore_adler32; // 1, continue without warning if Adler checksum corrupted
-			 unsigned custom_decoder; //use custom decoder if LODEPNG_CUSTOM_ZLIB_DECODER and LODEPNG_COMPILE_ZLIB are enabled
-			 } LodePNGDecompressSettings;
-			 Pass 1, 0 if unsure what to do.
-	returns: an error code, 0 on success
-*/
-
+/// <summary>
+/// Lode's main function, call this
+/// </summary>
+/// <param name="out">malloced return for decompressed output</param>
+/// <param name="outsize">return for output size</param>
+/// <param name="in">the zlib stream</param>
+/// <param name="insize">number of bytes in input stream</param>
+/// <param name="settings">
+/// typedef struct LodePNGDecompressSettings
+/// {
+/// unsigned ignore_adler32; // 1, continue without warning if Adler checksum corrupted
+/// unsigned custom_decoder; //use custom decoder if LODEPNG_CUSTOM_ZLIB_DECODER and LODEPNG_COMPILE_ZLIB are enabled
+/// } LodePNGDecompressSettings;
+/// Pass 1, 0 if unsure what to do.
+/// </param>
+/// <returns>an error code, 0 on success</returns>
 unsigned lodepng_zlib_decompress (BYTE** out, size_t* outsize, const BYTE* in, size_t insize, const LodePNGDecompressSettings* settings)
 {
 	unsigned error = 0;
@@ -4238,12 +4289,16 @@ unsigned lodepng_zlib_decompress (BYTE** out, size_t* outsize, const BYTE* in, s
 		return 26;
 	}
 	error = lodepng_inflate (out, outsize, in + 2, insize - 2, settings);
-	if (error) return error;
+	if (error) {
+		return error;
+	}
 
 	if (!settings->ignore_adler32) {
 		unsigned ADLER32 = lodepng_read32bitInt (&in[insize - 4]);
 		unsigned checksum = adler32 (*out, (unsigned)(*outsize));
-		if (checksum != ADLER32) return 58; /*error, adler checksum not correct, data must be corrupted*/
+		if (checksum != ADLER32) {
+			return 58; /*error, adler checksum not correct, data must be corrupted*/
+		}
 	}
 
 	return 0; /*no error*/
