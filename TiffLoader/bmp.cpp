@@ -36,9 +36,8 @@ int bmp_image::save_image (char* filename)
 	fwrite (&bmpInfo, sizeof (BMPINFOHEADER), 1, fp);
 
 	// データ部分を一行ずつ書き込み
-	unsigned int i;
 	char buf[4] = "";
-	for (i = 0;i < nHeight;i++) {
+	for (auto i = 0;i < nHeight;i++) {
 		fwrite (&rgbImage[i * nWidth], sizeof (RGBCOLOR), nWidth, fp);
 		fwrite (buf, sizeof (char), nWidth % 4, fp);
 	}

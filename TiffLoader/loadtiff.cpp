@@ -33,7 +33,7 @@ BYTE* TIFF::floadtiffwhite ()
 	try {
 		buff = load_tiff ();
 		if (!buff) {
-			throw some_exception ("error_exit");  // 例外をスロー
+			throw general_exception ("error_exit");  // 例外をスロー
 		}
 		switch (format) {
 		case FMT::FMT_RGBA:
@@ -72,10 +72,10 @@ BYTE* TIFF::floadtiffwhite ()
 			delete[] buff;
 			return grey;
 		default:
-			throw some_exception ("error_exit");  // 例外をスロー
+			throw general_exception ("error_exit");  // 例外をスロー
 		}
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		delete[] buff;
 		delete[] rgb;
 		delete[] grey;
@@ -106,7 +106,7 @@ BYTE* TIFF::load_tiff ()
 	magic = fd->fget16 ();
 	if (magic != 42) {
 		killtags (tags, Ntags);
-		throw some_exception ("parse_error");  // 例外をスロー
+		throw general_exception ("parse_error");  // 例外をスロー
 	}
 	offset = fd->fget32 ();
 	fd->buffer_ptr = offset;
@@ -114,7 +114,7 @@ BYTE* TIFF::load_tiff ()
 	tags = load_header (fd, &Ntags);
 	if (!tags) {
 		killtags (tags, Ntags);
-		throw some_exception ("out_of_memory");  // 例外をスロー
+		throw general_exception ("out_of_memory");  // 例外をスロー
 	}
 	//getchar();
 	//header_defaults (&header);
@@ -123,14 +123,14 @@ BYTE* TIFF::load_tiff ()
 	err = header.header_fixupsections ();
 	if (err) {
 		killtags (tags, Ntags);
-		throw some_exception ("parse_error");  // 例外をスロー
+		throw general_exception ("parse_error");  // 例外をスロー
 	}
 	//printf("here %d %d\n", header.imagewidth, header.imageheight);
 	//printf("Bitspersample%d %d %d\n", header.bitspersample[0], header.bitspersample[1], header.bitspersample[2]);
 	err = header.header_not_ok ();
 	if (err) {
 		killtags (tags, Ntags);
-		throw some_exception ("parse_error");  // 例外をスロー
+		throw general_exception ("parse_error");  // 例外をスロー
 	}
 	answer = header.load_raster (fd, &format);
 	//getchar();
@@ -203,17 +203,17 @@ int BASICHEADER::header_not_ok ()
 	//imagewidth = -1;
 	//imageheight = -1;
 	if (imagewidth <= 0 || imageheight <= 0 || (double)imagewidth * (double)imageheight > LONG_MAX / 4) {
-		throw some_exception ("parse_error");  // 例外をスロー	
+		throw general_exception ("parse_error");  // 例外をスロー	
 	}
 
 	//bitspersample[0] = -1;
 	if (samplesperpixel < 1 || samplesperpixel > 16) {
-		throw some_exception ("parse_error");  // 例外をスロー
+		throw general_exception ("parse_error");  // 例外をスロー
 	}
 
 	for (i = 0; i < samplesperpixel; i++) {
 		if (bitspersample[i] < 1 || (bitspersample[i] > 32 && bitspersample[i] % 8)) {
-			throw some_exception ("parse_error");  // 例外をスロー
+			throw general_exception ("parse_error");  // 例外をスロー
 		}
 	}
 	//compression = 1;
@@ -232,12 +232,12 @@ int BASICHEADER::header_not_ok ()
 	//colormap = 0;
 	//Ncolormap = 0;
 	if (Ncolormap < 0 || Ncolormap > INT_MAX / 4) {
-		throw some_exception ("parse_error");  // 例外をスロー
+		throw general_exception ("parse_error");  // 例外をスロー
 	}
 	/* RGB */
 	//planarconfiguration = 1;
 	if (planarconfiguration != 1 && planarconfiguration != 2) {
-		throw some_exception ("parse_error");  // 例外をスロー
+		throw general_exception ("parse_error");  // 例外をスロー
 	}
 	/* YCbCr*/
 
@@ -245,7 +245,7 @@ int BASICHEADER::header_not_ok ()
 	//LumaGreen = 0.587;
 	//LumaBlue = 0.114;
 	if (LumaRed <= 0 || LumaGreen <= 0 || LumaBlue <= 0) {
-		throw some_exception ("parse_error");  // 例外をスロー
+		throw general_exception ("parse_error");  // 例外をスロー
 	}
 	//YCbCrCoefficients = 0;
 	//YCbCrSubSampling_h = 2;
@@ -262,10 +262,10 @@ int BASICHEADER::header_not_ok ()
 	//tilewidth = 0;
 	//tileheight = 0;
 	if (tilewidth < 0 || tileheight < 0) {
-		throw some_exception ("parse_error");  // 例外をスロー
+		throw general_exception ("parse_error");  // 例外をスロー
 	}
 	if ((double)tilewidth * (double)tileheight > LONG_MAX / 4) {
-		throw some_exception ("parse_error");  // 例外をスロー
+		throw general_exception ("parse_error");  // 例外をスロー
 	}
 	//tileoffsets = 0;
 	//Ntileoffsets = 0;
@@ -305,7 +305,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 			break;
 		case TID::TID_BITSPERSAMPLE:
 			if (tags[i].datacount > 16) {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 			for (ii = 0; ii < tags[i].datacount; ii++) {
 				bitspersample[ii] = (int)tag_get_entry (&tags[i], ii);
@@ -323,7 +323,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 		case TID::TID_STRIPOFFSETS:
 			stripoffsets = new unsigned long[tags[i].datacount];
 			if (!stripoffsets) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			for (ii = 0; ii < tags[i].datacount; ii++) {
 				stripoffsets[ii] = (int)tag_get_entry (&tags[i], ii);
@@ -339,7 +339,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 		case TID::TID_STRIPBYTECOUNTS:
 			stripbytecounts = new unsigned long[tags[i].datacount];
 			if (!stripbytecounts) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			for (ii = 0; ii < tags[i].datacount; ii++) {
 				stripbytecounts[ii] = (unsigned long)tag_get_entry (&tags[i], ii);
@@ -357,12 +357,12 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 			break;
 		case TID::TID_COLORMAP:
 			if (tags[i].datacount > INT_MAX / 3) {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 			Ncolormap = tags[i].datacount / 3;
 			colormap = new BYTE[Ncolormap * 3];
 			if (!colormap) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			for (jj = 0; jj < Ncolormap; jj++) {
 				colormap[jj * 3 + 0] = (int)tag_get_entry (&tags[i], jj) / 256;
@@ -383,7 +383,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 		case TID::TID_TILEOFFSETS:
 			tileoffsets = new unsigned long[tags[i].datacount];
 			if (!tileoffsets) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			for (ii = 0; ii < tags[i].datacount; ii++) {
 				tileoffsets[ii] = (unsigned long)tag_get_entry (&tags[i], ii);
@@ -393,7 +393,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 		case TID::TID_TILEBYTECOUNTS:
 			tilebytecounts = new unsigned long[tags[i].datacount];
 			if (!tilebytecounts) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			for (ii = 0; ii < tags[i].datacount; ii++) {
 				tilebytecounts[ii] = (unsigned long)tag_get_entry (&tags[i], ii);
@@ -402,7 +402,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 			break;
 		case TID::TID_SAMPLEFORMAT:
 			if (tags[i].datacount != samplesperpixel) {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 			for (ii = 0; ii < tags[i].datacount;ii++) {
 				sampleformat[ii] = static_cast<SAMPLE_FORMAT>(tag_get_entry (&tags[i], ii));
@@ -411,7 +411,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 		case TID::TID_SMINSAMPLEVALUE:
 			sminsamplevalue = new double[tags[i].datacount];
 			if (!sminsamplevalue) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			for (ii = 0; ii < tags[i].datacount; ii++) {
 				sminsamplevalue[ii] = (unsigned long)tag_get_entry (&tags[i], ii);
@@ -421,7 +421,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 		case TID::TID_SMAXSAMPLEVALUE:
 			smaxsamplevalue = new double[tags[i].datacount];
 			if (!smaxsamplevalue) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			for (ii = 0; ii < tags[i].datacount; ii++) {
 				smaxsamplevalue[ii] = (unsigned long)tag_get_entry (&tags[i], ii);
@@ -430,7 +430,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 			break;
 		case TID::TID_YCBCRCOEFFICIENTS:
 			if (tags[i].datacount < 3) {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 			LumaRed = tag_get_entry (&tags[i], 0);
 			LumaGreen = tag_get_entry (&tags[i], 1);
@@ -438,7 +438,7 @@ int BASICHEADER::fill_header (TAG* tags, int Ntags)
 			break;
 		case TID::TID_YCBCRSUBSAMPLING:
 			if (tags[i].datacount < 2) {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 			YCbCrSubSampling_h = (int)tag_get_entry (&tags[i], 0);
 			YCbCrSubSampling_v = (int)tag_get_entry (&tags[i], 1);
@@ -563,7 +563,7 @@ BYTE* BASICHEADER::load_raster (FileData* fd, FMT* format)
 
 		answer = new BYTE[imagewidth * imageheight * outsamples];
 		if (!answer) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 		for (auto ii = 0;ii < imagewidth * imageheight;ii++) {
 			answer[ii * outsamples + outsamples - 1] = 255;
@@ -580,7 +580,7 @@ BYTE* BASICHEADER::load_raster (FileData* fd, FMT* format)
 						continue;
 					strip = read_channel (i, &swidth, &sheight, fd);
 					if (!strip) {
-						throw some_exception ("out_of_memory");  // 例外をスロー
+						throw general_exception ("out_of_memory");  // 例外をスロー
 					}
 					for (auto ii = 0; ii < swidth * sheight; ii++) {
 						answer[((row + ii / swidth) * imagewidth + (ii % swidth)) * outsamples + sample_index] = strip[ii];
@@ -603,7 +603,7 @@ BYTE* BASICHEADER::load_raster (FileData* fd, FMT* format)
 						continue;
 					strip = read_channel (i, &swidth, &sheight, fd);
 					if (!strip) {
-						throw some_exception ("out_of_memory");  // 例外をスロー	
+						throw general_exception ("out_of_memory");  // 例外をスロー	
 					}
 					for (auto ii = 0; ii < swidth * sheight; ii++) {
 						answer[((row + ii / swidth) * imagewidth + (ii % swidth)) * outsamples + sample_index] = strip[ii];
@@ -620,7 +620,7 @@ BYTE* BASICHEADER::load_raster (FileData* fd, FMT* format)
 				return answer;
 			}
 			else {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 		}
 
@@ -628,7 +628,7 @@ BYTE* BASICHEADER::load_raster (FileData* fd, FMT* format)
 			for (i = 0; i < Nstripoffsets; i++) {
 				strip = read_strip (i, &swidth, &sheight, fd, &insamples);
 				if (!strip) {
-					throw some_exception ("out_of_memory");  // 例外をスロー	
+					throw general_exception ("out_of_memory");  // 例外をスロー	
 				}
 				pasteflexible (answer, imagewidth, imageheight, outsamples,
 							   strip, swidth, sheight, insamples, 0, row);
@@ -653,7 +653,7 @@ BYTE* BASICHEADER::load_raster (FileData* fd, FMT* format)
 			for (i = 0; i < Ntileoffsets; i++) {
 				strip = read_tile (i, &swidth, &sheight, fd, &insamples);
 				if (!strip) {
-					throw some_exception ("out_of_memory");  // 例外をスロー
+					throw general_exception ("out_of_memory");  // 例外をスロー
 				}
 
 				pasteflexible (answer, imagewidth, imageheight, outsamples,
@@ -666,7 +666,7 @@ BYTE* BASICHEADER::load_raster (FileData* fd, FMT* format)
 
 		return answer;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		//out_of_memory:
 		//parse_error:
 		delete[] answer;
@@ -700,11 +700,11 @@ BYTE* BASICHEADER::read_tile (int index, int* tile_width, int* tile_height, File
 		fd->buffer_ptr = tileoffsets[index];
 		data = decompress (fd, tilebytecounts[index], compression, &N, tilewidth, tileheight, T4options);
 		if (!data) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 		answer = new BYTE[*insamples * tilewidth * tileheight];
 		if (!answer) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 		*tile_width = tilewidth;
 		*tile_height = tileheight;
@@ -740,7 +740,7 @@ BYTE* BASICHEADER::read_tile (int index, int* tile_width, int* tile_height, File
 		delete[] data;
 		return answer;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		// out_of_memory:
 		delete[] data;
 		delete[] answer;
@@ -775,13 +775,13 @@ BYTE* BASICHEADER::read_strip (int index, int* strip_width, int* strip_height, F
 		}
 		data = decompress (fd, stripbytecounts[index], compression, &N, imagewidth, stripheight, T4options);
 		if (!data) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 
 		*insamples = header_Ninsamples ();
 		answer = new BYTE[*insamples * imagewidth * stripheight];
 		if (!answer) {
-			throw some_exception ("out_of_memory");  // 例外をスロー	
+			throw general_exception ("out_of_memory");  // 例外をスロー	
 		}
 		*strip_width = imagewidth;
 		*strip_height = stripheight;
@@ -815,7 +815,7 @@ BYTE* BASICHEADER::read_strip (int index, int* strip_width, int* strip_height, F
 		delete[] data;
 		return answer;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		// out_of_memory:
 		delete[] data;
 		delete[] answer;
@@ -854,12 +854,12 @@ BYTE* BASICHEADER::read_channel (int index, int* channel_width, int* channel_hei
 			stripheight = rowsperstrip;
 		data = decompress (fd, stripbytecounts[index], compression, &N, imagewidth, stripheight, T4options);
 		if (!data) {
-			throw some_exception ("out_of_memory");  // 例外をスロー	
+			throw general_exception ("out_of_memory");  // 例外をスロー	
 		}
 
 		out = new BYTE[imagewidth * stripheight];
 		if (!out) {
-			throw some_exception ("out_of_memory");  // 例外をスロー	
+			throw general_exception ("out_of_memory");  // 例外をスロー	
 		}
 		*channel_width = imagewidth;
 		*channel_height = stripheight;
@@ -871,7 +871,7 @@ BYTE* BASICHEADER::read_channel (int index, int* channel_width, int* channel_hei
 		delete[] data;
 		return out;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		// out_of_memory:
 		delete[] data;
 		delete[] out;
@@ -892,26 +892,26 @@ BYTE* BASICHEADER::read_channel (int index, int* channel_width, int* channel_hei
 int BASICHEADER::plane_to_channel (BYTE* out, int width, int height, BYTE* bits, unsigned long Nbytes, int sample_index)
 {
 	int bitstreamflag = 0;
-	//unsigned long i;
-	//int ii;
 	int val;
-	unsigned long counter = 0;
 
 	if ((bitspersample[sample_index] % 8) != 0) {
 		bitstreamflag = 1;
 	}
 	if (bitstreamflag == 0) {
 		unsigned long i = 0;
+		unsigned long counter = 0;
 
 		while (i < Nbytes) {
 			out[0] = read_byte_sample (bits, sample_index);
-			if (photo_metric_interpretation == photo_metric_interpretations::PI_WhiteIsZero)
+			if (photo_metric_interpretation == photo_metric_interpretations::PI_WhiteIsZero) {
 				out[0] = 255 - out[0];
+			}
 			bits += bitspersample[sample_index] / 8;
 			i += bitspersample[sample_index] / 8;
 			out++;
-			if (counter++ > (unsigned long) (width * height))
+			if (counter++ > (unsigned long) (width * height)) {
 				return -1;
+			}
 		}
 	}
 	else {
@@ -1120,7 +1120,7 @@ int BASICHEADER::ycbcr_to_rgba (BYTE* rgba, int width, int height, BYTE* bits, u
 	try {
 
 		if (YCbCrSubSampling_h * YCbCrSubSampling_v > 16) {
-			throw some_exception ("parse_error");  // 例外をスロー
+			throw general_exception ("parse_error");  // 例外をスロー
 		}
 		if (LumaGreen == 0.0)
 			LumaGreen = 1.0;
@@ -1187,7 +1187,7 @@ int BASICHEADER::ycbcr_to_rgba (BYTE* rgba, int width, int height, BYTE* bits, u
 		}
 		return 0;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		//parse_error:
 		return -2;
 	}
@@ -1209,8 +1209,7 @@ int BASICHEADER::cmyk_to_cmyk (BYTE* cmyk, int width, int height, BYTE* bits, un
 	int ii;
 	int totbits = 0;
 	int bitstreamflag = 0;
-	int C, M, Y, K, A{};
-	int Cprev = 0, Yprev = 0, Mprev = 0, Kprev = 0, Aprev = 0;
+
 	//int red = 0;
 	// green = 0;
 	//int blue = 0;
@@ -1233,7 +1232,8 @@ int BASICHEADER::cmyk_to_cmyk (BYTE* cmyk, int width, int height, BYTE* bits, un
 
 		if (bitstreamflag == 0) {
 			unsigned long i = 0;
-
+			int C, M, Y, K, A{};
+			int Cprev = 0, Yprev = 0, Mprev = 0, Kprev = 0, Aprev = 0;
 			while (i < Nbytes - totbits / 8 + 1) {
 				C = read_byte_sample (bits, 0);
 				bits += bitspersample[0] / 8;
@@ -1299,17 +1299,17 @@ int BASICHEADER::cmyk_to_cmyk (BYTE* cmyk, int width, int height, BYTE* bits, un
 					Aprev = 0;
 				}
 				if (counter++ > width * height) {
-					throw some_exception ("parse_error");  // 例外をスロー
+					throw general_exception ("parse_error");  // 例外をスロー
 				}
 			}
 			return 0;
 		}
 		else {
-			throw some_exception ("parse_error");  // 例外をスロー
+			throw general_exception ("parse_error");  // 例外をスロー
 		}
 		return 0;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		//parse_error:
 		return -2;
 	}
@@ -1479,7 +1479,7 @@ int BASICHEADER::read_byte_sample (BYTE* bytes, int sample_index)
 			real = memread_ieee754f (bytes, endianness == ENDIAN::BIG_ENDIAN ? 1 : 0);
 		}
 		else {
-			throw some_exception ("error");
+			throw general_exception ("error");
 		}
 		if (sminsamplevalue) {
 			low = smaxsamplevalue[sample_index];
@@ -1503,7 +1503,7 @@ int BASICHEADER::read_byte_sample (BYTE* bytes, int sample_index)
 	return answer;
 }
 /// <summary>
-/// 
+/// unpredict samples
 /// </summary>
 /// <param name="buff"></param>
 /// <param name="width"></param>
@@ -1562,7 +1562,7 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 		case COMPRESSION::COMPRESSION_NONE:
 			answer = new BYTE[count];
 			if (!answer) {
-				throw some_exception ("out_of_memory");  // 例外をスロー	
+				throw general_exception ("out_of_memory");  // 例外をスロー	
 			}
 			//fread(answer, 1, count, fp);
 			fd->memcpy (answer, count);
@@ -1574,7 +1574,7 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 			buff = new BYTE[count];
 			//unsigned long i = 0;
 			if (!buff) {
-				throw some_exception ("out_of_memory");  // 例外をスロー	
+				throw general_exception ("out_of_memory");  // 例外をスロー	
 			}
 			//fread(buff, 1, count, fp);
 			fd->memcpy (buff, count);
@@ -1589,7 +1589,7 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 		case COMPRESSION::COMPRESSION_CCITTFAX3:
 			buff = new BYTE[count];
 			if (!buff) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			//fread(buff, 1, count, fp);
 			fd->memcpy (buff, count);
@@ -1609,7 +1609,7 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 		case COMPRESSION::COMPRESSION_CCITTFAX4:
 			buff = new BYTE[count];
 			if (!buff) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			//fread(buff, 1, count, fp);
 			fd->memcpy (buff, count);
@@ -1631,7 +1631,7 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 			err = loadlzw (0, fd, count, Nret);
 			answer = new BYTE[*Nret];
 			if (!answer) {
-				throw some_exception ("out_of_memory");  // 例外をスロー	
+				throw general_exception ("out_of_memory");  // 例外をスロー	
 			}
 			//fseek(fp, pos, SEEK_SET);
 			fd->buffer_ptr = pos;
@@ -1644,7 +1644,7 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 			settings.ignore_adler32 = 0;
 			buff = new BYTE[count];
 			if (!buff) {
-				throw some_exception ("out_of_memory");  // 例外をスロー	
+				throw general_exception ("out_of_memory");  // 例外をスロー	
 			}
 			//fread(buff, 1, count, fp);
 			fd->memcpy (buff, count);
@@ -1699,11 +1699,11 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 			//	work2 = "COMPRESSION_UNKNOWN";break;
 			//}
 			//sprintf_s(work, "compression not supported:%s", work2);
-			//throw some_exception(work);
+			//throw general_exception(work);
 		}
 		return 0;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		//out_of_memory:
 		throw;
 	}
@@ -1736,7 +1736,7 @@ BYTE* unpackbits (FileData* fd, unsigned long count, unsigned long* Nret)
 		Nleft = count;
 		while (Nleft > 0) {
 			if ((ch = fd->fgetcc ()) == EOF) {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 			Nleft--;
 			header = (signed char)ch;
@@ -1760,12 +1760,12 @@ BYTE* unpackbits (FileData* fd, unsigned long count, unsigned long* Nret)
 		Nleft = count;
 		answer = new BYTE[N];
 		if (!answer) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 		auto j = 0;
 		while (Nleft > 0) {
 			if ((ch = fd->fgetcc ()) == EOF) {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 			Nleft--;
 			header = (signed char)ch;
@@ -1790,7 +1790,7 @@ BYTE* unpackbits (FileData* fd, unsigned long count, unsigned long* Nret)
 		*Nret = N;
 		return answer;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		//parse_error:
 		//out_of_memory:
 		delete[] answer;
@@ -1813,102 +1813,107 @@ typedef struct
 	//BYTE* ptr;
 } ENTRY;
 
-typedef struct huffnode
+class HUFFNODE
 {
-	struct huffnode* zero;
-	struct huffnode* one;
+public:
+	HUFFNODE* zero;
+	HUFFNODE* one;
 	int symbol;
-} HUFFNODE;
-
-HUFFNODE* addhuffmansymbol (HUFFNODE* root, const char* str, int symbol, int* err);
-void killhuffmantree (HUFFNODE* root);
-
-/// <summary>
-/// add a symbol to the tree
-/// </summary>
-/// <param name="root">original tree (start off with null)</param>
-/// <param name="str">the code, to add, encoded in ascii</param>
-/// <param name="symbol">associated symbol</param>
-/// <param name="err">error return sticky, 0 = success</param>
-/// <returns>new tree (meaningful internally, after the first external call will always return the root)</returns>
-HUFFNODE* addhuffmansymbol (HUFFNODE* root, const char* str, int symbol, int* err)
-{
-	HUFFNODE* answer;
-	if (root) {
-		if (str[0] == '0') {
-			root->zero = addhuffmansymbol (root->zero, str + 1, symbol, err);
-		}
-		else if (str[0] == '1') {
-			root->one = addhuffmansymbol (root->one, str + 1, symbol, err);
-		}
-		else if (str[0] == 0) {
-			root->symbol = symbol;
-		}
-
-		return root;
+	HUFFNODE ()
+	{
+		zero = NULL;
+		one = NULL;
+		symbol = -1;
 	}
-	else {
-		answer = new HUFFNODE ();
-		if (!answer) {
-			*err = -1;
-			return 0;
+	/// <summary>
+	/// Huffman tree destructor
+	/// </summary>
+	/// <param name="root"></param>
+	~HUFFNODE ()
+	{
+		delete zero;
+		delete one;
+	}
+	/// <summary>
+	/// get huffman symbol
+	/// </summary>
+	/// <param name="bs"></param>
+	/// <returns>symbol</returns>
+	int gethuffmansymbol (BSTREAM* bs)
+	{
+
+		int bit;
+
+		if (zero == NULL && one == NULL) {
+
+			return symbol;
 		}
-		answer->zero = 0;
-		answer->one = 0;
-		answer->symbol = -1;
-		return addhuffmansymbol (answer, str, symbol, err);
+		bit = bs->getbit ();
+		//printf("%d", bit);
+		if (bit == 0 && zero) {
+			return zero->gethuffmansymbol (bs);
+		}
+		else if (bit == 1 && one) {
+			return one->gethuffmansymbol (bs);
+		}
+		else {
+			return symbol;
+		}
 	}
-	return 0;
-}
 
-/*
-  Huffman tree destructor
-*/
-void killhuffmantree (HUFFNODE* root)
-{
-	if (root) {
-		killhuffmantree (root->zero);
-		killhuffmantree (root->one);
-		delete root;
-	}
-}
-
-/*
-void debughufftree(HUFFNODE *root, int N)
-{
-	int i;
+	/// <summary>
+	/// debug print
+	/// </summary>
+	/// <param name="N"></param>
+	void debughufftree (int N)
+	{
+		int i;
 		for (i = 0; i < N * 2; i++)
-			printf(" ");
-		printf("%d %p %p\n", root->symbol, root->zero, root->one);
-		if (root->zero)
-			debug(root->zero, N + 1);
-		if (root->one)
-			debug(root->one, N+1);
+			printf (" ");
+		printf ("%d %p %p\n", symbol, zero, one);
+		if (zero)
+			zero->debughufftree (N + 1);
+		if (one)
+			one->debughufftree (N + 1);
 
-}
-*/
-
-int gethuffmansymbol (HUFFNODE* root, BSTREAM* bs)
-{
-
-	int bit;
-
-	if (root->zero == NULL && root->one == NULL) {
-
-		return root->symbol;
 	}
-	bit = bs->getbit ();
-	//printf("%d", bit);
-	if (bit == 0 && root->zero) {
-		return gethuffmansymbol (root->zero, bs);
+
+	/// <summary>
+	/// add a symbol to the tree
+	/// </summary>
+	/// <param name="root">original tree (start off with null)</param>
+	/// <param name="str">the code, to add, encoded in ascii</param>
+	/// <param name="symbol">associated symbol</param>
+	/// <param name="err">error return sticky, 0 = success</param>
+	/// <returns>new tree (meaningful internally, after the first external call will always return the root)</returns>
+	static HUFFNODE* addhuffmansymbol (HUFFNODE* root, const char* str, int symbol, int* err)
+	{
+		HUFFNODE* answer = NULL;
+		if (root) {
+			if (str[0] == '0') {
+				root->zero = addhuffmansymbol (root->zero, str + 1, symbol, err);
+			}
+			else if (str[0] == '1') {
+				root->one = addhuffmansymbol (root->one, str + 1, symbol, err);
+			}
+			else if (str[0] == 0) {
+				root->symbol = symbol;
+			}
+
+			return root;
+		}
+		else {
+			answer = new HUFFNODE ();
+			if (!answer) {
+				*err = -1;
+				return 0;
+			}
+			return addhuffmansymbol (answer, str, symbol, err);
+		}
+		return 0;
 	}
-	else if (bit == 1 && root->one) {
-		return gethuffmansymbol (root->one, bs);
-	}
-	else {
-		return root->symbol;
-	}
-}
+};
+
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////*/
 /*   CCITT decoding section*/
@@ -2059,36 +2064,36 @@ BYTE* ccittdecompress (BYTE* in, unsigned long count, unsigned long* Nret, int w
 		Nout = (width + 7) / 8 * height;
 		answer = new BYTE[Nout];
 		if (!answer) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 		bout = new BSTREAM (answer, Nout, BIG_ENDIAN);
 		if (!bout) {
-			throw some_exception ("out_of_memory");  // 例外をスロー	
+			throw general_exception ("out_of_memory");  // 例外をスロー	
 		}
 		bs = new BSTREAM (in, count, LITTLE_ENDIAN);
 		if (!bs) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 		for (i = 0; i < 105; i++) {
-			whitetree = addhuffmansymbol (whitetree, ccitttable[i].whitecode, ccitttable[i].whitelen, &err);
+			whitetree = HUFFNODE::addhuffmansymbol (whitetree, ccitttable[i].whitecode, ccitttable[i].whitelen, &err);
 		}
 		for (i = 0; i < 105; i++) {
-			blacktree = addhuffmansymbol (blacktree, ccitttable[i].blackcode, ccitttable[i].blacklen, &err);
+			blacktree = HUFFNODE::addhuffmansymbol (blacktree, ccitttable[i].blackcode, ccitttable[i].blacklen, &err);
 		}
 		if (err) {
-			throw some_exception ("out_of_memory");  // 例外をスロー	
+			throw general_exception ("out_of_memory");  // 例外をスロー	
 		}
 
 		//debug(whitetree, 0);
 		if (eol) {
-			len = gethuffmansymbol (whitetree, bs);
+			len = whitetree->gethuffmansymbol (bs);
 		}
 		for (i = 0; i < height; i++) {
 			totlen = 0;
 			while (totlen < width) {
-				len = gethuffmansymbol (whitetree, bs);
+				len = whitetree->gethuffmansymbol (bs);
 				if (len == -1) {
-					throw some_exception ("parse_error");  // 例外をスロー
+					throw general_exception ("parse_error");  // 例外をスロー
 				}
 				if (len == -2) {
 					whitelen = width - totlen;
@@ -2097,9 +2102,9 @@ BYTE* ccittdecompress (BYTE* in, unsigned long count, unsigned long* Nret, int w
 					whitelen = len;
 				}
 				while (len >= 64) {
-					len = gethuffmansymbol (whitetree, bs);
+					len = whitetree->gethuffmansymbol (bs);
 					if (len == EOL || len == -1 || totlen + len + whitelen > width) {
-						throw some_exception ("parse_error");  // 例外をスロー
+						throw general_exception ("parse_error");  // 例外をスロー
 					}
 					whitelen += len;
 				}
@@ -2110,15 +2115,15 @@ BYTE* ccittdecompress (BYTE* in, unsigned long count, unsigned long* Nret, int w
 				if (totlen >= width) {
 					break;
 				}
-				len = gethuffmansymbol (blacktree, bs);
+				len = blacktree->gethuffmansymbol (bs);
 				if (len < 0) {
-					throw some_exception ("parse_error");  // 例外をスロー
+					throw general_exception ("parse_error");  // 例外をスロー
 				}
 				blacklen = len;
 				while (len >= 64) {
-					len = gethuffmansymbol (blacktree, bs);
+					len = blacktree->gethuffmansymbol (bs);
 					if (len == EOL || len == -1 || totlen + len + blacklen > width) {
-						throw some_exception ("parse_error");  // 例外をスロー
+						throw general_exception ("parse_error");  // 例外をスロー
 					}
 					blacklen += len;
 				}
@@ -2135,22 +2140,22 @@ BYTE* ccittdecompress (BYTE* in, unsigned long count, unsigned long* Nret, int w
 				}
 			}
 			if (eol) {
-				gethuffmansymbol (whitetree, bs);
+				whitetree->gethuffmansymbol (bs);
 			}
 			///synch_to_byte(bs);
 		}
 		*Nret = Nout;
-		killhuffmantree (whitetree);
-		killhuffmantree (blacktree);
+		delete whitetree;
+		delete blacktree;
 		delete bs;
 		delete bout;
 		return answer;
 	}
-	catch (some_exception e) {
+	catch (general_exception) {
 		// parse_error:
 		// out_of_memory:
-		killhuffmantree (whitetree);
-		killhuffmantree (blacktree);
+		delete whitetree;
+		delete blacktree;
 		delete bs;
 		delete bout;
 		delete[] answer;
@@ -2185,29 +2190,29 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 		Nout = (width + 7) / 8 * height;
 		answer = new BYTE[Nout];
 		if (!answer) {
-			throw some_exception ("out_of_memory");  // 例外をスロー	
+			throw general_exception ("out_of_memory");  // 例外をスロー	
 		}
 		//debug memset
 		memset (answer, 0, Nout);
 		bout = new BSTREAM (answer, Nout, BIG_ENDIAN);
 		if (!bout) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 		bs = new BSTREAM (in, count, eol ? LITTLE_ENDIAN : BIG_ENDIAN);
 		if (!bs) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 		for (i = 0; i < 105; i++) {
-			whitetree = addhuffmansymbol (whitetree, ccitttable[i].whitecode, ccitttable[i].whitelen, &err);
+			whitetree = HUFFNODE::addhuffmansymbol (whitetree, ccitttable[i].whitecode, ccitttable[i].whitelen, &err);
 		}
 		for (i = 0; i < 105; i++) {
-			blacktree = addhuffmansymbol (blacktree, ccitttable[i].blackcode, ccitttable[i].blacklen, &err);
+			blacktree = HUFFNODE::addhuffmansymbol (blacktree, ccitttable[i].blackcode, ccitttable[i].blacklen, &err);
 		}
 		for (i = 0; i < 11; i++) {
-			twodtree = addhuffmansymbol (twodtree, ccitt2dtable[i].code, static_cast<int>(ccitt2dtable[i].symbol), &err);
+			twodtree = HUFFNODE::addhuffmansymbol (twodtree, ccitt2dtable[i].code, static_cast<int>(ccitt2dtable[i].symbol), &err);
 		}
 		if (err) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 
 		reference = new BYTE[width];
@@ -2216,7 +2221,7 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 		}
 		current = new BYTE[width];
 		if (!current || !reference) {
-			throw some_exception ("out_of_memory");  // 例外をスロー
+			throw general_exception ("out_of_memory");  // 例外をスロー
 		}
 
 
@@ -2246,7 +2251,7 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 					a0 = 0;
 				}
 
-				mode = static_cast<CCITT>(gethuffmansymbol (twodtree, bs));
+				mode = static_cast<CCITT>(twodtree->gethuffmansymbol (bs));
 
 				a2 = -1;
 				switch (mode) {
@@ -2258,23 +2263,23 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 					a2span = 0;
 					if (colour == 0) {
 						do {
-							seg = gethuffmansymbol (whitetree, bs);
+							seg = whitetree->gethuffmansymbol (bs);
 							a1span += seg;
 						} while (seg >= 64 && a0 + a1span <= width);
 
 						do {
-							seg = gethuffmansymbol (blacktree, bs);
+							seg = blacktree->gethuffmansymbol (bs);
 							a2span += seg;
 						} while (seg >= 64 && a0 + a1span <= width);
 					}
 					else {
 						do {
-							seg = gethuffmansymbol (blacktree, bs);
+							seg = blacktree->gethuffmansymbol (bs);
 							a1span += seg;
 						} while (seg >= 64 && a0 + a1span <= width);
 
 						do {
-							seg = gethuffmansymbol (whitetree, bs);
+							seg = whitetree->gethuffmansymbol (bs);
 							a2span += seg;
 						} while (seg >= 64 && a0 + a1span + a2span <= width);
 					}
@@ -2282,7 +2287,7 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 					a2 = a1 + a2span;
 					if (a1 > width) {
 						//printf("Bad span1 %d span2 %d here\n", a1span, a2span);
-						throw some_exception ("parse_error");  // 例外をスロー
+						throw general_exception ("parse_error");  // 例外をスロー
 					}
 					break;
 				case CCITT::CCITT_VERTICAL_0:
@@ -2308,21 +2313,21 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 					break;
 				case CCITT::CCITT_ENDOFFAXBLOCK:
 					*Nret = Nout;
-					killhuffmantree (twodtree);
-					killhuffmantree (whitetree);
-					killhuffmantree (blacktree);
+					delete twodtree;
+					delete whitetree;
+					delete blacktree;
 					delete[] reference;
 					delete[] current;
 					return answer;
 				default:
-					throw some_exception ("parse_error");  // 例外をスロー
+					throw general_exception ("parse_error");  // 例外をスロー
 				}
 
 				if (a1 <= a0 && a0 != 0) {
-					throw some_exception ("parse_error");  // 例外をスロー
+					throw general_exception ("parse_error");  // 例外をスロー
 				}
 				if (a0 < 0 || a1 < 0) {
-					throw some_exception ("parse_error");  // 例外をスロー
+					throw general_exception ("parse_error");  // 例外をスロー
 				}
 				while (a0 < a1 && a0 < width) {
 					current[a0++] = colour;
@@ -2359,14 +2364,14 @@ BYTE* ccittgroup4decompress (BYTE* in, unsigned long count, unsigned long* Nret,
 
 		}
 		*Nret = Nout;
-		killhuffmantree (twodtree);
-		killhuffmantree (whitetree);
-		killhuffmantree (blacktree);
+		delete twodtree;
+		delete whitetree;
+		delete blacktree;
 		delete[] reference;
 		delete[] current;
 		return answer;
 	}
-	catch (some_exception e) {
+	catch (general_exception e) {
 		if (strcmp (e.what (), "parse_error") == 0) {
 			*Nret = Nout;
 			return answer;
@@ -2398,7 +2403,6 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 	BSTREAM* bs;
 	ENTRY* table = NULL;
 	int pos = 0;
-	int ii;
 	int len;
 	int second;
 	int first;
@@ -2424,7 +2428,7 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 
 		table = new ENTRY[(1 << 12)];
 
-		for (ii = 0; ii < nextcode; ii++) {
+		for (auto ii = 0; ii < nextcode; ii++) {
 			table[ii].prefix = 0;
 			table[ii].len = 1;
 			table[ii].suffix = ii;
@@ -2437,7 +2441,7 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 			bs = new BSTREAM (stream, count, LITTLE_ENDIAN);
 			first = bs->getbits (codelen);
 			if (first != clear) {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 		}
 		while (first == clear) {
@@ -2452,7 +2456,7 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 		while (1) {
 			second = bs->getbits (codelen);
 			if (second < 0) {
-				throw some_exception ("parse_error");  // 例外をスロー
+				throw general_exception ("parse_error");  // 例外をスロー
 			}
 			if (second == clear) {
 				nextcode = end + 1;
@@ -2478,13 +2482,13 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 
 			if (second >= nextcode) {
 				len = table[first].len;
-				//if (len + pos >= width * height)
-				//	break;
-
+				// if (len + pos >= width * height)
+				// break;
 				tempcode = first;
-				for (ii = 0; ii < len; ii++) {
-					if (out)
+				for (auto ii = 0; ii < len; ii++) {
+					if (out) {
 						out[pos + len - ii - 1] = (BYTE)table[tempcode].suffix;
+					}
 					tempcode = table[tempcode].prefix;
 				}
 				if (out) {
@@ -2494,11 +2498,11 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 			}
 			else {
 				len = table[second].len;
-				//if (pos + len > width * height)
-					//break;
+				// if (pos + len > width * height)
+				// break;
 				tempcode = second;
 
-				for (ii = 0; ii < len; ii++) {
+				for (auto ii = 0; ii < len; ii++) {
 					ch = table[tempcode].suffix;
 					if (out) {
 						out[pos + len - ii - 1] = (BYTE)table[tempcode].suffix;
@@ -2529,12 +2533,10 @@ int loadlzw (BYTE* out, FileData* fd, unsigned long count, unsigned long* Nret)
 
 		delete[] table;
 		delete[] stream;
-
 		*Nret = pos;
-
 		return 0;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		//parse_error:
 		delete[] table;
 		delete[] stream;
@@ -2669,7 +2671,7 @@ TAG* load_header (FileData* fd, int* Ntags)
 		//printf("%d tags\n", N);
 		answer = new TAG[N];//(TAG*)new char[N * sizeof(TAG)];
 		if (!answer) {
-			throw some_exception ("out_of_memory");  // 例外をスロー	
+			throw general_exception ("out_of_memory");  // 例外をスロー	
 		}
 		for (i = 0; i < N;i++) {
 			answer[i].vector = 0;
@@ -2679,7 +2681,7 @@ TAG* load_header (FileData* fd, int* Ntags)
 		for (i = 0; i < N; i++) {
 			err = load_tags (&answer[i], fd);
 			if (err) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			/*
 			if (answer[i].datacount == 1)
@@ -2695,7 +2697,7 @@ TAG* load_header (FileData* fd, int* Ntags)
 		return answer;
 	}
 
-	catch (some_exception) {
+	catch (general_exception) {
 		//out_of_memory:
 		killtags (answer, N);
 		return 0;
@@ -2736,8 +2738,7 @@ int load_tags (TAG* tag, FileData* fd)
 	unsigned long offset;
 	unsigned long pos;
 	unsigned long num, denom;
-	//const unsigned long datasize;
-	unsigned long i;
+
 	try {
 
 		tag->tagid = static_cast<TID>(fd->fget16 ());
@@ -2810,7 +2811,7 @@ int load_tags (TAG* tag, FileData* fd)
 			case TAG_TYPE::TAG_BYTE:
 				tag->vector = new char[datasize];
 				if (!tag->vector) {
-					throw some_exception ("out_of_memory");  // 例外をスロー
+					throw general_exception ("out_of_memory");  // 例外をスロー
 				}
 				//fread(tag->vector, 1, datasize, fp);
 				fd->memcpy (tag->vector, datasize);
@@ -2820,35 +2821,35 @@ int load_tags (TAG* tag, FileData* fd)
 			case TAG_TYPE::TAG_ASCII:
 				tag->ascii = fread_asciiz (fd);
 				if (!tag->ascii) {
-					throw some_exception ("out_of_memory");  // 例外をスロー	
+					throw general_exception ("out_of_memory");  // 例外をスロー	
 				}
 				break;
 			case TAG_TYPE::TAG_SHORT:
 				tag->vector = new char[tag->datacount * sizeof (short)];
 				if (!tag->vector) {
-					throw some_exception ("out_of_memory");  // 例外をスロー
+					throw general_exception ("out_of_memory");  // 例外をスロー
 				}
-				for (i = 0; i < tag->datacount; i++)
-					((unsigned short*)tag->vector)[i] = fd->fget16u ();
+				for (auto i = 0LU; i < tag->datacount; i++)
+					(static_cast<unsigned short*>(tag->vector))[i] = fd->fget16u ();
 				break;
 			case TAG_TYPE::TAG_LONG:
 				tag->vector = new char[tag->datacount * sizeof (long)];
 				if (!tag->vector) {
-					throw some_exception ("out_of_memory");  // 例外をスロー	
+					throw general_exception ("out_of_memory");  // 例外をスロー	
 				}
-				for (i = 0; i < tag->datacount; i++)
-					((unsigned long*)tag->vector)[i] = fd->fget32u ();
+				for (auto i = 0LU; i < tag->datacount; i++)
+					(static_cast<unsigned long*>(tag->vector))[i] = fd->fget32u ();
 				break;
 			case TAG_TYPE::TAG_RATIONAL:
 				tag->vector = new char[tag->datacount * sizeof (double)];
 				if (!tag->vector) {
-					throw some_exception ("out_of_memory");  // 例外をスロー	
+					throw general_exception ("out_of_memory");  // 例外をスロー	
 				}
-				for (i = 0; i < tag->datacount; i++) {
+				for (auto i = 0LU; i < tag->datacount; i++) {
 					num = fd->fget32u ();
 					denom = fd->fget32u ();
 					if (denom)
-						((double*)tag->vector)[i] = ((double)num) / denom;
+						(static_cast<double*>(tag->vector))[i] = ((double)num) / denom;
 				}
 				break;
 			default:
@@ -2871,7 +2872,7 @@ int load_tags (TAG* tag, FileData* fd)
 		}
 		return 0;
 	}
-	catch (some_exception) {
+	catch (general_exception) {
 		//out_of_memory:
 		tag->bad = -1;
 		return -1;
@@ -2879,13 +2880,13 @@ int load_tags (TAG* tag, FileData* fd)
 	}
 }
 
-/*
-  read an entry for a tag
-	Tag - the tag read in
-	index - index of data item in tag
-Returns: value (as double)
-*/
-double tag_get_entry (TAG* tag, int index)
+/// <summary>
+/// read an entry for a tag
+/// </summary>
+/// <param name="tag">the tag read in</param>
+/// <param name="index">index of data item in tag</param>
+/// <returns>value (as double)</returns>
+double tag_get_entry (TAG* tag, unsigned long index)
 {
 	if (index >= tag->datacount) {
 		return -1.0;
@@ -2898,15 +2899,15 @@ double tag_get_entry (TAG* tag, int index)
 	}
 	switch (tag->datatype) {
 	case TAG_TYPE::TAG_BYTE:
-		return (double)((BYTE*)tag->vector)[index];
+		return (double)(static_cast<BYTE*>(tag->vector))[index];
 	case TAG_TYPE::TAG_ASCII:
-		return (double)((char*)tag->vector)[index];
+		return (double)(static_cast<char*>(tag->vector))[index];
 	case TAG_TYPE::TAG_SHORT:
-		return (double)((unsigned short*)tag->vector)[index];
+		return (double)(static_cast<unsigned short*>(tag->vector))[index];
 	case TAG_TYPE::TAG_LONG:
-		return (double)((unsigned long*)tag->vector)[index];
+		return (double)(static_cast<unsigned long*>(tag->vector))[index];
 	case TAG_TYPE::TAG_RATIONAL:
-		return (double)((double*)tag->vector)[index];
+		return static_cast<double*>(tag->vector)[index];
 	default:
 		return -1;
 	}
@@ -3044,12 +3045,12 @@ char* fread_asciiz (FileData* fd)
 		buff[N++] = ch;
 		if (N == bufflen) {
 			if ((bufflen + bufflen / 2) < bufflen) {
-				throw some_exception ("out_of_memory");  // 例外をスロー	
+				throw general_exception ("out_of_memory");  // 例外をスロー	
 			}
 			temp = new char[bufflen + bufflen / 2];
 			//temp = (char*)realloc(buff, bufflen + bufflen / 2);
 			if (!temp) {
-				throw some_exception ("out_of_memory");  // 例外をスロー
+				throw general_exception ("out_of_memory");  // 例外をスロー
 			}
 			// 旧領域から転送
 			memcpy (temp, buff, bufflen);
@@ -3161,7 +3162,7 @@ double memread_ieee754 (BYTE* buff, int bigendian)
 /// <param name="mem"></param>
 /// <param name="bigendian"></param>
 /// <returns></returns>
-float memread_ieee754f (BYTE* mem, int bigendian)
+float memread_ieee754f (const BYTE* mem, int bigendian)
 {
 	unsigned long buff = 0;
 	//unsigned long buff2 = 0;
@@ -3492,7 +3493,7 @@ public:
 				// 旧領域削除
 				delete[] this->data;
 				this->allocsize = new_size;
-				this->data = (BYTE*)new_data;
+				this->data = static_cast<BYTE*>(new_data);
 				this->size = size;
 			}
 			else {
@@ -3745,7 +3746,7 @@ public:
 				// 削除
 				delete[] this->data;
 				this->allocsize = new_size;
-				this->data = (unsigned*)new_data;
+				this->data = static_cast<unsigned*>(new_data);
 				this->size = size;
 			}
 			else {

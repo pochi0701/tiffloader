@@ -49,12 +49,12 @@ const enum ENDIAN
 	LITTLE_ENDIAN = 2,
 };
 // 例外を表すクラス
-class some_exception
+class general_exception
 {
 private:
 	const char* msg;   // 例外を説明するメッセージ
 public:
-	some_exception (const char* msg) : msg (msg) {}  // コンストラクタ
+	explicit general_exception (const char* msg) : msg (msg) {}  // コンストラクタ
 	const char* what () { return msg; }  // メッセージを返す
 };
 
@@ -112,7 +112,7 @@ public:
 			type = ENDIAN::BIG_ENDIAN;
 		}
 		else {
-			throw some_exception ("parse_error");  // 例外をスロー
+			throw general_exception ("parse_error");  // 例外をスロー
 		}
 	}
 	/// <summary>
@@ -122,7 +122,7 @@ public:
 	int fgetcc ()
 	{
 		if (buffer_ptr >= size) {
-			throw some_exception ("memory_error");  // 例外をスロー
+			throw general_exception ("memory_error");  // 例外をスロー
 		}
 		return (BYTE)buffer[buffer_ptr++];
 	}
@@ -719,11 +719,11 @@ BYTE* decompress (FileData* fd, unsigned long count, COMPRESSION compression, un
 TAG* load_header (FileData* fd, int* Ntags);
 void killtags (TAG* tags, int N);
 int load_tags (TAG* tag, FileData* fd);
-double tag_get_entry (TAG* tag, int index);
+double tag_get_entry (TAG* tag, unsigned long index);
 void pasteflexible (BYTE* buff, int width, int height, int depth, const BYTE* tile, int twidth, int theight, int tdepth, int x, int y);
 char* fread_asciiz (FileData* fd);
 double memread_ieee754 (BYTE* buff, int bigendian);
-float memread_ieee754f (BYTE* buff, int bigendian);
+float memread_ieee754f (const BYTE* buff, int bigendian);
 int YcbcrToRGB (int Y, int cb, int cr, BYTE* red, BYTE* green, BYTE* blue);
 
 class TIFF
